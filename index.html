@@ -63,12 +63,22 @@ section{margin-top:14px}
 .now-desc{flex:1;text-align:right}
 .now-desc .d1{font-size:15px;font-weight:600}
 .now-desc .d2{color:var(--dim);font-size:13px;margin-top:3px}
-.now-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+.now-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
 .nk{background:var(--card2);border-radius:12px;padding:9px 8px;text-align:center}
 .nk .v{font-size:16px;font-weight:600}
 .nk .v small{font-size:11px;font-weight:400;color:var(--dim)}
 .nk .k{font-size:10.5px;color:var(--dim);margin-top:2px;text-transform:uppercase;letter-spacing:.05em}
 .warr{display:inline-block;transition:transform .3s}
+
+/* ---------- rest of today strip ---------- */
+.hstrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.hcell{min-width:56px;flex-shrink:0;background:var(--card2);border-radius:10px;
+       padding:8px 4px;text-align:center}
+.hcell .ht{font-size:11px;color:var(--dim)}
+.hcell .hi{font-size:19px;margin:3px 0}
+.hcell .hv{font-size:14px;font-weight:600}
+.hcell .hp{font-size:11px;color:var(--rain);margin-top:2px}
+.hcell.tmw{opacity:.65}
 
 /* ---------- minutecast ---------- */
 #mcSummary{font-size:14.5px;font-weight:600;margin-bottom:10px}
@@ -180,6 +190,14 @@ footer a{color:var(--dim)}
     </div>
   </section>
 
+  <!-- REST OF TODAY -->
+  <section>
+    <div class="card">
+      <div class="cardtitle"><h2>Rest of today</h2></div>
+      <div class="hstrip" id="todayStrip"></div>
+    </div>
+  </section>
+
   </div>
 
   <div class="page" id="page-forecast">
@@ -255,7 +273,7 @@ footer a{color:var(--dim)}
     Radar: <a href="https://rainviewer.com" target="_blank">RainViewer</a> ·
     Wind: <a href="https://windy.com" target="_blank">Windy</a><br>
     🚴 dot = bike-commute comfort (rain / gusts / extreme temp)<br>
-    Bike Weather <b>v4</b>
+    Bike Weather <b>v5</b>
   </footer>
 </div>
 
@@ -454,7 +472,7 @@ async function fetchAll(force){
     hist = hr.ok ? await hr.json() : null;
     lastFetch=Date.now();
 
-    renderNow(); renderMinutecast(); renderHourly(); renderDaily();
+    renderNow(); renderMinutecast(); renderToday(); renderHourly(); renderDaily();
     renderHistory(); renderAccums();
     updateMapLocation();
     $('locSub').textContent = `${loc.lat.toFixed(3)}, ${loc.lon.toFixed(3)} · updated ${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
@@ -489,7 +507,31 @@ function renderNow(){
         <div class="k">Humidity</div></div>
       <div class="nk"><div class="v">${r1(c.precipitation)}<small> mm</small></div>
         <div class="k">Precip now</div></div>
+      <div class="nk"><div class="v">${data.daily.sunrise[0].slice(11,16)}</div>
+        <div class="k">🌅 Sunrise</div></div>
+      <div class="nk"><div class="v">${data.daily.sunset[0].slice(11,16)}</div>
+        <div class="k">🌇 Sunset</div></div>
     </div>`;
+}
+
+/* ================= rest of today strip ================= */
+function renderToday(){
+  const h=data.hourly, today=data.current.time.slice(0,10), out=[];
+  let count=0;
+  for(let i=0;i<h.time.length;i++){
+    const isToday=h.time[i].slice(0,10)===today;
+    if(!isToday && count>=6) break;          // past midnight: only pad up to 6 cells
+    const prob=h.precipitation_probability?.[i]??0;
+    const bc=bikeClass(prob,h.precipitation[i]??0,h.wind_gusts_10m[i],h.temperature_2m[i]);
+    out.push(`<div class="hcell${isToday?'':' tmw'}">
+      <div class="ht"><span class="bike ${bc}"></span>${h.time[i].slice(11,16)}</div>
+      <div class="hi">${nightIcon(h.weather_code[i],h.is_day[i])}</div>
+      <div class="hv">${Math.round(h.temperature_2m[i])}°</div>
+      <div class="hp">${prob}%</div>
+    </div>`);
+    count++;
+  }
+  $('todayStrip').innerHTML=out.join('');
 }
 
 /* ================= MinuteCast ================= */
@@ -772,7 +814,7 @@ function renderHistory(){
   skel.style.display='none'; svg.style.display='block'; $('histLegend').style.display='flex';
 
   const W=860,H=250,L=38,R=36,T=16,B=30,plotW=W-L-R,plotH=H-T-B;
-  let times,temps,precs,winds,daily=false;
+  let times,temps,precs,winds,daily=false,nowI=-1;
 
   if(histRange==='31d'){
     daily=true;
@@ -783,10 +825,12 @@ function renderHistory(){
   }else{
     const n={'24h':24,'48h':48,'7d':168}[histRange];
     const ni=histNowIdx(), s=Math.max(0,ni-n+1);
-    times=hist.hourly.time.slice(s,ni+1);
-    temps=hist.hourly.temperature_2m.slice(s,ni+1);
-    precs=hist.hourly.precipitation.slice(s,ni+1).map(v=>v??0);
-    winds=hist.hourly.wind_speed_10m.slice(s,ni+1);
+    const e=hist.hourly.time.length;          // includes the rest of today (forecast_days=1)
+    times=hist.hourly.time.slice(s,e);
+    temps=hist.hourly.temperature_2m.slice(s,e);
+    precs=hist.hourly.precipitation.slice(s,e).map(v=>v??0);
+    winds=hist.hourly.wind_speed_10m.slice(s,e);
+    nowI=ni-s;
   }
   const n=times.length; if(!n){ svg.style.display='none'; return; }
 
@@ -809,20 +853,32 @@ function renderHistory(){
   s+=`<text x="${W-R+5}" y="${T+10}" fill="#3d8bfd" font-size="11">${r1(pmax)}mm</text>`;
   s+=`<text x="${W-R+5}" y="${T+plotH}" fill="#3d8bfd" font-size="11">0</text>`;
 
-  // precip bars
+  // precip bars (future = lighter)
   const bw=Math.max(1.2,plotW/n*0.72);
   for(let i=0;i<n;i++){
     if(precs[i]<=0) continue;
     const h=plotH*(precs[i]/pmax);
-    s+=`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${(T+plotH-h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="#3d8bfd" opacity=".85" rx="1"/>`;
+    const op=(nowI>=0&&i>nowI)?'.4':'.85';
+    s+=`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${(T+plotH-h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="#3d8bfd" opacity="${op}" rx="1"/>`;
   }
   // wind line
   if(winds){
     s+=`<polyline fill="none" stroke="#8b96a8" stroke-width="1.4" stroke-dasharray="4 3" points="${winds.map((v,i)=>`${X(i).toFixed(1)},${Yw(v).toFixed(1)}`).join(' ')}"/>`;
     s+=`<text x="${W-R+5}" y="${Yw(winds[winds.length-1])+4}" fill="#8b96a8" font-size="10">${Math.round(winds[winds.length-1])}km/h</text>`;
   }
-  // temp line
-  s+=`<polyline fill="none" stroke="#ff8f5e" stroke-width="2.2" stroke-linejoin="round" points="${temps.map((v,i)=>`${X(i).toFixed(1)},${Yt(v).toFixed(1)}`).join(' ')}"/>`;
+  // temp line: solid up to now, dashed for the forecast part
+  const tPts=(a,off)=>a.map((v,i)=>`${X(i+off).toFixed(1)},${Yt(v).toFixed(1)}`).join(' ');
+  if(nowI>=0 && nowI<n-1){
+    s+=`<polyline fill="none" stroke="#ff8f5e" stroke-width="2.2" stroke-linejoin="round" points="${tPts(temps.slice(0,nowI+1),0)}"/>`;
+    s+=`<polyline fill="none" stroke="#ff8f5e" stroke-width="2" stroke-dasharray="5 4" opacity=".75" points="${tPts(temps.slice(nowI),nowI)}"/>`;
+  }else{
+    s+=`<polyline fill="none" stroke="#ff8f5e" stroke-width="2.2" stroke-linejoin="round" points="${tPts(temps,0)}"/>`;
+  }
+  // "now" marker
+  if(nowI>=0 && nowI<n-1){
+    s+=`<line x1="${X(nowI).toFixed(1)}" y1="${T}" x2="${X(nowI).toFixed(1)}" y2="${T+plotH}" stroke="#4da3ff" stroke-width="1.3" stroke-dasharray="3 3"/>`;
+    s+=`<text x="${X(nowI).toFixed(1)}" y="${T-4}" fill="#4da3ff" font-size="11" text-anchor="middle">now</text>`;
+  }
 
   // x labels
   if(daily){
