@@ -59,14 +59,7 @@ section{margin-top:14px}
 .cardtitle h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--dim)}
 
 /* ---------- now ---------- */
-.now-main{display:flex;align-items:center;gap:14px}
-.now-icon{font-size:52px;line-height:1}
-.now-temp{font-size:52px;font-weight:250;line-height:1}
-.now-temp sup{font-size:22px}
-.now-desc{flex:1;text-align:right}
-.now-desc .d1{font-size:15px;font-weight:600}
-.now-desc .d2{color:var(--dim);font-size:13px;margin-top:3px}
-.now-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+.now-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
 .sunrow{display:flex;justify-content:space-between;align-items:center;font-size:14px;gap:8px;flex-wrap:wrap}
 .sunrow .mid{color:var(--dim);font-size:12.5px}
 .hlrow{display:flex;align-items:center;gap:12px;padding:8px 0}
@@ -94,8 +87,8 @@ section{margin-top:14px}
 .hcell.tmw{opacity:.65}
 
 /* ---------- minutecast dial ---------- */
-.mcwrap{display:flex;justify-content:center;margin:6px 0 2px}
-#mcDial{width:225px;max-width:78%;height:auto}
+.mcwrap{display:flex;justify-content:center;margin:4px 0 0}
+#mcDial{width:min(340px,96%);height:auto}
 
 /* ---------- weather alerts ---------- */
 .alert{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--bad);
@@ -112,7 +105,6 @@ section{margin-top:14px}
 
 /* ---------- minutecast ---------- */
 #mcSummary{font-size:14.5px;font-weight:600;margin-bottom:10px}
-#mcChart{width:100%;display:block}
 
 /* ---------- forecast ---------- */
 .seg{display:flex;background:var(--card2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -180,7 +172,6 @@ section{margin-top:14px}
 footer{margin-top:22px;text-align:center;color:var(--dim);font-size:11px;line-height:1.7}
 footer a{color:var(--dim)}
 @media(max-width:420px){
-  .now-temp{font-size:44px}.now-icon{font-size:44px}
   .frow .wind{min-width:64px}
 }
 </style>
@@ -207,10 +198,12 @@ footer a{color:var(--dim)}
   <!-- ALERTS -->
   <section id="alertsBox" style="display:none"></section>
 
-  <!-- NOW -->
+  <!-- NOW: minutecast dial + stats -->
   <section>
-    <div class="card" id="nowCard">
-      <div class="skel">Loading current conditions…</div>
+    <div class="card">
+      <div id="mcSummary" class="skel">Loading current conditions…</div>
+      <div class="mcwrap"><svg id="mcDial" viewBox="0 0 260 260" style="display:none"></svg></div>
+      <div class="now-grid" id="nowGrid"></div>
     </div>
   </section>
 
@@ -219,16 +212,6 @@ footer a{color:var(--dim)}
     <div class="card">
       <div class="cardtitle"><h2 data-i18n="today_wx">Today's weather</h2><span class="hdate" id="hlDate"></span></div>
       <div id="hlRows"></div>
-    </div>
-  </section>
-
-  <!-- MINUTECAST -->
-  <section>
-    <div class="card">
-      <div class="cardtitle"><h2 data-i18n="next3h">MinuteCast — precipitation</h2></div>
-      <div id="mcSummary" class="skel">…</div>
-      <div class="mcwrap"><svg id="mcDial" viewBox="0 0 260 260" style="display:none"></svg></div>
-      <svg id="mcChart" viewBox="0 0 720 110" preserveAspectRatio="none" style="display:none"></svg>
     </div>
   </section>
 
@@ -322,7 +305,7 @@ footer a{color:var(--dim)}
     Wind: <a href="https://windy.com" target="_blank">Windy</a><br>
     <span data-i18n="bike">🚴 dot = bike-commute comfort (rain / gusts / extreme temp)</span><br>
     <div class="seg" id="langSeg" style="display:inline-flex;margin:8px 0 4px"><button data-lang="en" class="on">EN</button><button data-lang="fr">FR</button></div><br>
-    Bike Weather <b>v9</b>
+    Bike Weather <b>v10</b>
   </footer>
 </div>
 
@@ -616,20 +599,7 @@ async function fetchAll(force){
 /* ================= NOW card ================= */
 function renderNow(){
   const c=data.current;
-  const [_,desc]=wmo(c.weather_code);
-  const icon=nightIcon(c.weather_code,c.is_day);
-  const feelDiff=c.apparent_temperature-c.temperature_2m;
-  const feelNote=Math.abs(feelDiff)<1.5?'': (feelDiff>0?t('humidex'):t('windchill'));
-  $('nowCard').innerHTML=`
-    <div class="now-main">
-      <div class="now-icon">${icon}</div>
-      <div class="now-temp">${Math.round(c.temperature_2m)}<sup>°C</sup></div>
-      <div class="now-desc">
-        <div class="d1">${desc}</div>
-        <div class="d2">${t('feelslike')} <b>${Math.round(c.apparent_temperature)}°</b>${feelNote}</div>
-      </div>
-    </div>
-    <div class="now-grid">
+  $('nowGrid').innerHTML=`
       <div class="nk"><div class="v">${Math.round(c.wind_speed_10m)}<small> km/h</small></div>
         <div class="k">${t('windk')} ${windArrow(c.wind_direction_10m)} ${compass(c.wind_direction_10m)}</div></div>
       <div class="nk"><div class="v">${Math.round(c.wind_gusts_10m)}<small> km/h</small></div>
@@ -637,8 +607,7 @@ function renderNow(){
       <div class="nk"><div class="v">${c.relative_humidity_2m}<small>%</small></div>
         <div class="k">${t('humidity')}</div></div>
       <div class="nk"><div class="v">${r1(c.precipitation)}<small> mm</small></div>
-        <div class="k">${t('precipnow')}</div></div>
-    </div>`;
+        <div class="k">${t('precipnow')}</div></div>`;
   const sr=data.daily.sunrise[0], ss=data.daily.sunset[0];
   const mins=Math.round((Date.parse(ss)-Date.parse(sr))/60000);
   $('sunRow').innerHTML=`<span>🌅 ${sr.slice(11,16)}</span>
@@ -687,8 +656,8 @@ function renderToday(){
 /* ================= MinuteCast ================= */
 function renderMinutecast(){
   const m=data.minutely_15;
-  const sum=$('mcSummary'), svg=$('mcChart');
-  if(!m || !m.time || !m.time.length){ sum.textContent='15-min nowcast unavailable here.'; svg.style.display='none'; return; }
+  const sum=$('mcSummary');
+  if(!m || !m.time || !m.time.length){ sum.textContent='15-min nowcast unavailable here.'; sum.classList.remove('skel'); renderDial([0],0); return; }
   const nowT=data.current.time;
   let si=-1;
   for(let i=m.time.length-1;i>=0;i--){ if(m.time[i]<=nowT){ si=i; break; } }
@@ -714,23 +683,6 @@ function renderMinutecast(){
   if(mx>=2.5) txt+=t('heavy'); else if(mx>=1) txt+=t('moderate');
   sum.textContent=txt; sum.classList.remove('skel');
   renderDial(prec, Math.max(0, Math.round((Date.parse(nowT)-Date.parse(m.time[si]))/60000)));
-
-  // bar chart
-  const W=720,H=110,pb=22,pt=8;
-  const n=prec.length, bw=W/n;
-  const cap=Math.max(1.5,mx);
-  let s='';
-  for(let i=0;i<n;i++){
-    const h=Math.max(prec[i]>0?3:1,(prec[i]/cap)*(H-pb-pt));
-    const col=prec[i]<0.1?'#2a3242':prec[i]<1?'#3d8bfd':prec[i]<2.5?'#2f6fe0':'#7a4dff';
-    s+=`<rect x="${(i*bw+1.5).toFixed(1)}" y="${(H-pb-h).toFixed(1)}" width="${(bw-3).toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${col}"/>`;
-  }
-  for(let i=0;i<n;i+=4){
-    const lbl=i===0?'now':`+${i*15/60}h`;
-    s+=`<text x="${(i*bw+2).toFixed(1)}" y="${H-6}" fill="#8b96a8" font-size="11">${lbl}</text>`;
-  }
-  if(mx>=0.1) s+=`<text x="${W-4}" y="${pt+10}" fill="#8b96a8" font-size="11" text-anchor="end">max ${r1(mx)} mm/15min</text>`;
-  svg.innerHTML=s; svg.style.display='block';
 }
 
 /* ================= tab bar ================= */
@@ -1152,16 +1104,14 @@ function renderDial(prec, offMin){
   s+=`<text x="248" y="${C+4}" fill="#8b96a8" font-size="11" text-anchor="middle">+15</text>`;
   s+=`<text x="${C}" y="254" fill="#8b96a8" font-size="11" text-anchor="middle">+30</text>`;
   s+=`<text x="12" y="${C+4}" fill="#8b96a8" font-size="11" text-anchor="middle">+45</text>`;
-  // centre: precip status within the next hour
-  let fw=-1; for(let mn=0;mn<60;mn++) if(vAt(mn)>=0.1){ fw=mn; break; }
-  let icon,label;
-  if(fw===-1){ icon='☂️'; label=t('dial_dry'); }
-  else if(fw===0){
-    let fd=60; for(let mn=1;mn<60;mn++) if(vAt(mn)<0.1){ fd=mn; break; }
-    icon='🌧️'; label=t('dial_for')(fd);
-  }else{ icon='🌧️'; label=t('dial_in')(fw); }
-  s+=`<text x="${C}" y="${C-2}" font-size="34" text-anchor="middle">${icon}</text>`;
-  s+=`<text x="${C}" y="${C+28}" fill="#e8edf4" font-size="14" font-weight="600" text-anchor="middle">${label}</text>`;
+  // centre: current conditions
+  const c=data.current;
+  const feelDiff=c.apparent_temperature-c.temperature_2m;
+  const feelNote=Math.abs(feelDiff)<1.5?'': (feelDiff>0?t('humidex'):t('windchill'));
+  s+=`<text x="${C}" y="${C-38}" font-size="26" text-anchor="middle">${nightIcon(c.weather_code,c.is_day)}</text>`;
+  s+=`<text x="${C}" y="${C+14}" fill="#e8edf4" font-size="46" font-weight="300" text-anchor="middle">${Math.round(c.temperature_2m)}°</text>`;
+  s+=`<text x="${C}" y="${C+38}" fill="#e8edf4" font-size="12.5" font-weight="600" text-anchor="middle">${wmo(c.weather_code)[1]}</text>`;
+  s+=`<text x="${C}" y="${C+56}" fill="#8b96a8" font-size="11.5" text-anchor="middle">${t('feelslike')} ${Math.round(c.apparent_temperature)}°${feelNote}</text>`;
   svg.innerHTML=s; svg.style.display='block';
 }
 
