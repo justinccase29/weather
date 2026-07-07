@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0e1117">
 <title>Bike Weather</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{
@@ -118,12 +121,8 @@ section{margin-top:14px}
             font-variant-numeric:tabular-nums;line-height:1.35}
 .leaflet-container{font:inherit}
 
-/* ---------- charts / zoom ---------- */
-.zoomwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:6px}
-.zoomwrap svg{display:block;height:250px;width:100%}
-.zbtn{background:var(--card2);border:1px solid var(--line);color:var(--txt);border-radius:8px;
-      min-width:30px;height:26px;font-size:15px;cursor:pointer;line-height:1}
-.legend .zbtn:first-of-type{margin-left:auto}
+/* ---------- charts ---------- */
+.chart{height:300px;margin-top:6px}
 
 /* ---------- history ---------- */
 .accums{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
@@ -132,8 +131,6 @@ section{margin-top:14px}
 .accum .v small{font-size:11px;font-weight:400}
 .accum .k{font-size:10.5px;color:var(--dim);margin-top:3px;text-transform:uppercase;letter-spacing:.04em}
 .accum .d{font-size:10px;color:var(--dim);margin-top:2px}
-.legend{display:flex;gap:14px;margin-top:8px;font-size:11px;color:var(--dim);flex-wrap:wrap}
-.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:2px;margin-right:4px}
 
 /* ---------- search overlay ---------- */
 #searchOverlay{position:fixed;inset:0;background:rgba(10,13,18,.96);z-index:1000;display:none;
@@ -230,14 +227,7 @@ footer a{color:var(--dim)}
       <div id="hourlyList"><div class="skel">…</div></div>
       <div id="dailyList" style="display:none"></div>
       <div id="fcWrap" style="display:none">
-        <div class="zoomwrap" id="fcZoomWrap"><svg id="fcGraph" preserveAspectRatio="none"></svg></div>
-        <div class="legend">
-          <span><i style="background:#ff8f5e"></i>Temp</span>
-          <span><i style="background:#3d8bfd"></i>Precip</span>
-          <span><i style="background:#8b96a8"></i>Wind</span>
-          <span><i style="background:#ffd54d"></i>Sunshine</span>
-          <button class="zbtn" data-z="fc:-">−</button><button class="zbtn" data-z="fc:+">＋</button>
-        </div>
+        <div id="fcGraph" class="chart"></div>
       </div>
     </div>
   </section>
@@ -281,14 +271,8 @@ footer a{color:var(--dim)}
           <button data-range="31d">31d</button>
         </div>
       </div>
-      <div class="zoomwrap" id="histZoomWrap"><svg id="meteogram" viewBox="0 0 860 250" preserveAspectRatio="none" style="display:none"></svg></div>
+      <div id="meteogram" class="chart" style="display:none"></div>
       <div id="histSkel" class="skel">Loading history…</div>
-      <div class="legend" id="histLegend" style="display:none">
-        <span><i style="background:#ff8f5e"></i>Temperature</span>
-        <span><i style="background:var(--rain)"></i>Precipitation (mm)</span>
-        <span><i style="background:#8b96a8"></i>Wind (km/h)</span>
-        <button class="zbtn" data-z="hist:-">−</button><button class="zbtn" data-z="hist:+">＋</button>
-      </div>
       <div class="accums" id="accumCards"></div>
     </div>
   </section>
@@ -300,7 +284,7 @@ footer a{color:var(--dim)}
     Radar: <a href="https://rainviewer.com" target="_blank">RainViewer</a> ·
     Wind: <a href="https://windy.com" target="_blank">Windy</a><br>
     🚴 dot = bike-commute comfort (rain / gusts / extreme temp)<br>
-    Bike Weather <b>v6</b>
+    Bike Weather <b>v7</b>
   </footer>
 </div>
 
@@ -325,6 +309,7 @@ footer a{color:var(--dim)}
 <div id="toast"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <script>
 "use strict";
 /* ================= helpers ================= */
@@ -629,6 +614,8 @@ function showPage(name){
   for(const b of $('tabbar').children) b.classList.toggle('on', b.dataset.page===name);
   window.scrollTo(0,0);
   if(name==='map' && loc) applyMapMode();
+  if(name==='forecast') renderFcGraph();     // charts only render while visible
+  if(name==='history') renderHistory();
 }
 $('tabbar').addEventListener('click',e=>{
   const b=e.target.closest('button'); if(b) showPage(b.dataset.page);
@@ -649,41 +636,26 @@ $('tabDaily').onclick =()=>{ ui.ftab='daily';  saveUI(); applyFtab(); };
 $('tabGraph').onclick =()=>{ ui.ftab='graph';  saveUI(); applyFtab(); };
 function segTab(on,off){ $(on).classList.add('on'); $(off).classList.remove('on'); }
 
-/* ================= chart zoom (buttons / pinch / ctrl+wheel) ================= */
-const zoomState={hist:1, fc:1};
-const zoomRender={hist:()=>renderHistory(), fc:()=>renderFcGraph()};
-const zoomWrap=k=>k==='hist'?$('histZoomWrap'):$('fcZoomWrap');
-function setZoom(key,mult){
-  const wrap=zoomWrap(key);
-  const centre=(wrap.scrollLeft+wrap.clientWidth/2)/Math.max(1,wrap.scrollWidth);
-  zoomState[key]=Math.min(6,Math.max(1,zoomState[key]*mult));
-  zoomRender[key]();
-  wrap.scrollLeft=centre*wrap.scrollWidth-wrap.clientWidth/2;
-}
-document.addEventListener('click',e=>{
-  const b=e.target.closest('.zbtn'); if(!b) return;
-  const [k,d]=b.dataset.z.split(':');
-  setZoom(k, d==='+'?1.5:1/1.5);
-});
-function addPinch(key){
-  const wrap=zoomWrap(key);
-  let baseD=0, baseZ=1;
-  const dist=e=>Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
-                           e.touches[0].clientY-e.touches[1].clientY);
-  wrap.addEventListener('touchstart',e=>{
-    if(e.touches.length===2){ baseD=dist(e); baseZ=zoomState[key]; }
-  },{passive:true});
-  wrap.addEventListener('touchmove',e=>{
-    if(e.touches.length===2 && baseD){
-      e.preventDefault();
-      const z=Math.min(6,Math.max(1,baseZ*dist(e)/baseD));
-      if(Math.abs(z-zoomState[key])/zoomState[key]>0.07){ zoomState[key]=z; zoomRender[key](); }
-    }
-  },{passive:false});
-  wrap.addEventListener('wheel',e=>{
-    if(e.ctrlKey){ e.preventDefault(); setZoom(key, e.deltaY<0?1.2:1/1.2); }
-  },{passive:false});
-}
+/* ================= charts (ECharts) ================= */
+let fcChart=null, histChart=null;
+const CH={txt:'#e8edf4',dim:'#8b96a8',line:'#2a3242',card:'#1e2532',
+         temp:'#ff8f5e',rain:'#3d8bfd',wind:'#8b96a8',sun:'#ffd54d',accent:'#4da3ff'};
+const chLegend=()=>({top:0,textStyle:{color:CH.dim,fontSize:11},itemWidth:14,itemHeight:8,inactiveColor:'#3a4356'});
+const chTooltip=()=>({trigger:'axis',backgroundColor:CH.card,borderColor:CH.line,
+  textStyle:{color:CH.txt,fontSize:12},axisPointer:{type:'cross',label:{backgroundColor:CH.line}}});
+const chZoom=()=>[{type:'inside'},{type:'slider',height:16,bottom:4,borderColor:CH.line,
+  backgroundColor:'transparent',fillerColor:'rgba(77,163,255,.15)',
+  handleStyle:{color:CH.accent},moveHandleStyle:{color:CH.line},textStyle:{color:CH.dim,fontSize:10}}];
+const chXTime=()=>({type:'time',axisLine:{lineStyle:{color:CH.line}},
+  axisLabel:{color:CH.dim,hideOverlap:true},splitLine:{show:false}});
+const chYTemp=()=>({type:'value',position:'left',
+  min:v=>Math.floor(v.min-1),max:v=>Math.ceil(v.max+1),
+  axisLabel:{color:CH.dim,formatter:'{value}°'},splitLine:{lineStyle:{color:CH.line}}});
+const chYRain=()=>({type:'value',position:'right',min:0,
+  max:v=>Math.max(1,Math.ceil(v.max*1.2*10)/10),
+  axisLabel:{color:CH.rain},splitLine:{show:false}});
+const chYHidden=(minMax,pad)=>({type:'value',show:false,min:0,max:v=>Math.max(minMax,v.max*pad)});
+window.addEventListener('resize',()=>{ fcChart&&fcChart.resize(); histChart&&histChart.resize(); });
 
 function renderHourly(){
   const h=data.hourly, out=[];
@@ -734,85 +706,52 @@ function renderDaily(){
 
 /* ================= forecast meteogram (48 h, 15-min steps) ================= */
 function renderFcGraph(){
-  if(!data || !data.minutely_15 || !data.minutely_15.temperature_2m) return;
+  if(!window.echarts || !data || !data.minutely_15 || !data.minutely_15.temperature_2m) return;
+  const el=$('fcGraph');
+  if(!el.offsetParent) return;                     // hidden tab — rendered when shown
   const m=data.minutely_15, nowT=data.current.time;
   let si=m.time.findLastIndex(t=>t<=nowT); if(si<0) si=0;
-  const times=m.time.slice(si),
-        temps=m.temperature_2m.slice(si),
-        precs=m.precipitation.slice(si).map(v=>v??0),
-        winds=m.wind_speed_10m.slice(si),
-        rads =m.shortwave_radiation.slice(si).map(v=>v??0);
-  const n=times.length; if(n<2) return;
-  const z=zoomState.fc;
-  const W=Math.round(880*z), H=260, L=38, R=40, T=20, B=30, plotW=W-L-R, plotH=H-T-B;
-  const t0=Date.parse(times[0]), t1=Date.parse(times[n-1]);
-  const X=i=>L+plotW*(i/(n-1));
-  const Xms=ms=>L+plotW*(ms-t0)/(t1-t0);
-  const tmin=Math.floor(Math.min(...temps)-1), tmax=Math.ceil(Math.max(...temps)+1);
-  const pmax=Math.max(0.5,...precs);              // mm / 15 min
-  const rmax=Math.max(400,...rads);               // W/m²
-  const wmax=Math.max(20,...winds);
-  const Yt=v=>T+plotH*(1-(v-tmin)/(tmax-tmin||1));
-  const Yr=v=>T+plotH*(1-v/rmax);
-  const Yw=v=>T+plotH*(1-v/wmax);
-  let s='';
+  const P=arr=>m.time.slice(si).map((t,i)=>[Date.parse(t), arr[si+i]??0]);
+  const temp=P(m.temperature_2m), prec=P(m.precipitation),
+        wind=P(m.wind_speed_10m), rad=P(m.shortwave_radiation);
+  if(temp.length<2) return;
+  const t0=temp[0][0], t1=temp[temp.length-1][0];
 
-  // night shading from sunset → next sunrise
-  const d=data.daily;
-  const sr0=Date.parse(d.sunrise[0]);
-  if(sr0>t0) s+=`<rect x="${Xms(t0).toFixed(1)}" y="${T}" width="${(Xms(Math.min(sr0,t1))-Xms(t0)).toFixed(1)}" height="${plotH}" fill="#000" opacity=".25"/>`;
-  for(let i=0;i<d.time.length;i++){
-    const ss=Date.parse(d.sunset[i]);
-    const srN=(i+1<d.time.length)?Date.parse(d.sunrise[i+1]):t1+1;
-    const a=Math.max(t0,ss), b=Math.min(t1,srN);
-    if(b>a) s+=`<rect x="${Xms(a).toFixed(1)}" y="${T}" width="${(Xms(b)-Xms(a)).toFixed(1)}" height="${plotH}" fill="#000" opacity=".25"/>`;
+  // night bands: sunset → next sunrise
+  const dd=data.daily, nights=[];
+  const sr0=Date.parse(dd.sunrise[0]);
+  if(sr0>t0) nights.push([{xAxis:t0},{xAxis:Math.min(sr0,t1)}]);
+  for(let i=0;i<dd.time.length;i++){
+    const a=Math.max(t0,Date.parse(dd.sunset[i]));
+    const b=Math.min(t1,(i+1<dd.time.length)?Date.parse(dd.sunrise[i+1]):t1);
+    if(b>a) nights.push([{xAxis:a},{xAxis:b}]);
   }
 
-  // temp grid + left axis
-  for(let g=0;g<=4;g++){
-    const tv=tmin+(tmax-tmin)*g/4, y=Yt(tv);
-    s+=`<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="#2a3242" stroke-width="1"/>`;
-    s+=`<text x="${L-5}" y="${y+4}" fill="#8b96a8" font-size="11" text-anchor="end">${Math.round(tv)}°</text>`;
-  }
-
-  // sunshine area (shortwave radiation)
-  let area=`M${X(0).toFixed(1)},${(T+plotH).toFixed(1)}`;
-  for(let i=0;i<n;i++) area+=` L${X(i).toFixed(1)},${Yr(rads[i]).toFixed(1)}`;
-  area+=` L${X(n-1).toFixed(1)},${(T+plotH).toFixed(1)} Z`;
-  s+=`<path d="${area}" fill="#ffd54d" opacity=".16"/>`;
-  s+=`<polyline fill="none" stroke="#ffd54d" stroke-width="1.3" opacity=".8" points="${rads.map((v,i)=>`${X(i).toFixed(1)},${Yr(v).toFixed(1)}`).join(' ')}"/>`;
-  s+=`<text x="${W-R+4}" y="${T+10}" fill="#ffd54d" font-size="10">☀ ${Math.round(Math.max(...rads))} W/m²</text>`;
-
-  // precip bars
-  const bw=Math.max(1,plotW/n*0.8);
-  for(let i=0;i<n;i++){
-    if(precs[i]<=0) continue;
-    const h=plotH*(precs[i]/pmax);
-    s+=`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${(T+plotH-h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="#3d8bfd" opacity=".85" rx="1"/>`;
-  }
-  if(Math.max(...precs)>0)
-    s+=`<text x="${W-R+4}" y="${T+24}" fill="#3d8bfd" font-size="10">${r1(pmax)} mm/15m</text>`;
-
-  // wind + temp lines
-  s+=`<polyline fill="none" stroke="#8b96a8" stroke-width="1.4" stroke-dasharray="4 3" points="${winds.map((v,i)=>`${X(i).toFixed(1)},${Yw(v).toFixed(1)}`).join(' ')}"/>`;
-  s+=`<text x="${W-R+4}" y="${Yw(winds[n-1])+4}" fill="#8b96a8" font-size="10">${Math.round(winds[n-1])}km/h</text>`;
-  s+=`<polyline fill="none" stroke="#ff8f5e" stroke-width="2.2" stroke-linejoin="round" points="${temps.map((v,i)=>`${X(i).toFixed(1)},${Yt(v).toFixed(1)}`).join(' ')}"/>`;
-
-  // x labels: hours + day names at midnight
-  for(let i=0;i<n;i++){
-    const hh=times[i].slice(11,16);
-    if(hh==='00:00'){
-      s+=`<line x1="${X(i).toFixed(1)}" y1="${T}" x2="${X(i).toFixed(1)}" y2="${T+plotH}" stroke="#2a3242" stroke-width="1" stroke-dasharray="2 3"/>`;
-      s+=`<text x="${X(i).toFixed(1)}" y="${H-9}" fill="#4da3ff" font-size="11" text-anchor="middle">${dayName(times[i].slice(0,10))}</text>`;
-    }else if(['06:00','12:00','18:00'].includes(hh)){
-      s+=`<text x="${X(i).toFixed(1)}" y="${H-9}" fill="#8b96a8" font-size="11" text-anchor="middle">${hh.slice(0,2)}h</text>`;
-    }
-  }
-
-  const svg=$('fcGraph');
-  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
-  svg.style.width=(z*100)+'%';
-  svg.innerHTML=s;
+  if(!fcChart) fcChart=echarts.init(el);
+  fcChart.setOption({
+    animation:false,
+    legend:chLegend(),
+    tooltip:chTooltip(),
+    grid:{left:40,right:44,top:30,bottom:52},
+    xAxis:chXTime(),
+    yAxis:[chYTemp(),chYRain(),chYHidden(20,1.25),chYHidden(400,1.05)],
+    dataZoom:chZoom(),
+    series:[
+      {name:'Sunshine',type:'line',yAxisIndex:3,data:rad,symbol:'none',color:CH.sun,
+       lineStyle:{color:CH.sun,width:1.2},areaStyle:{color:'rgba(255,213,77,.15)'},
+       tooltip:{valueFormatter:v=>Math.round(v)+' W/m²'},
+       markArea:{silent:true,itemStyle:{color:'rgba(0,0,0,.25)'},data:nights}},
+      {name:'Precip',type:'bar',yAxisIndex:1,data:prec,color:CH.rain,
+       tooltip:{valueFormatter:v=>r1(v)+' mm/15min'}},
+      {name:'Wind',type:'line',yAxisIndex:2,data:wind,symbol:'none',color:CH.wind,
+       lineStyle:{color:CH.wind,width:1.3,type:'dashed'},
+       tooltip:{valueFormatter:v=>Math.round(v)+' km/h'}},
+      {name:'Temp',type:'line',data:temp,symbol:'none',z:5,color:CH.temp,
+       lineStyle:{color:CH.temp,width:2.4},
+       tooltip:{valueFormatter:v=>Math.round(v)+' °C'}}
+    ]
+  },true);
+  fcChart.resize();
 }
 
 /* ================= map: radar + wind ================= */
@@ -971,99 +910,58 @@ function histNowIdx(){
 }
 
 function renderHistory(){
-  const svg=$('meteogram'), skel=$('histSkel');
+  const el=$('meteogram'), skel=$('histSkel');
   if(!hist||!data){ skel.textContent='History unavailable.'; return; }
-  skel.style.display='none'; svg.style.display='block'; $('histLegend').style.display='flex';
+  if(!window.echarts){ skel.textContent='Chart library failed to load — check connection.'; return; }
+  skel.style.display='none'; el.style.display='block';
+  if(!el.offsetParent) return;                     // hidden tab — rendered when shown
 
-  const z=zoomState.hist;
-  const W=Math.round(860*z),H=250,L=38,R=36,T=16,B=30,plotW=W-L-R,plotH=H-T-B;
-  let times,temps,precs,winds,daily=false,nowI=-1;
-
+  const nowMs=Date.parse(data.current.time);
+  let series;
   if(histRange==='31d'){
-    daily=true;
     const d=hist.daily, today=data.current.time.slice(0,10);
     const end=d.time.indexOf(today); const e2=end===-1?d.time.length:end+1;
-    times=d.time.slice(0,e2); temps=d.temperature_2m_max.slice(0,e2);
-    precs=d.precipitation_sum.slice(0,e2).map(v=>v??0); winds=null;
+    const Pd=arr=>d.time.slice(0,e2).map((t,i)=>[Date.parse(t)+12*3600e3, arr[i]??0]);
+    series=[
+      {name:'Precip',type:'bar',yAxisIndex:1,data:Pd(d.precipitation_sum),color:CH.rain,
+       tooltip:{valueFormatter:v=>r1(v)+' mm'}},
+      {name:'Max temp',type:'line',data:Pd(d.temperature_2m_max),symbol:'none',z:5,color:CH.temp,
+       lineStyle:{color:CH.temp,width:2},tooltip:{valueFormatter:v=>Math.round(v)+' °C'}},
+      {name:'Min temp',type:'line',data:Pd(d.temperature_2m_min),symbol:'none',color:'#6fa8dc',
+       lineStyle:{color:'#6fa8dc',width:1.6},tooltip:{valueFormatter:v=>Math.round(v)+' °C'}}
+    ];
   }else{
     const n={'24h':24,'48h':48,'7d':168}[histRange];
-    const ni=histNowIdx(), s=Math.max(0,ni-n+1);
-    const e=hist.hourly.time.length;          // includes the rest of today (forecast_days=1)
-    times=hist.hourly.time.slice(s,e);
-    temps=hist.hourly.temperature_2m.slice(s,e);
-    precs=hist.hourly.precipitation.slice(s,e).map(v=>v??0);
-    winds=hist.hourly.wind_speed_10m.slice(s,e);
-    nowI=ni-s;
+    const ni=histNowIdx(), s0=Math.max(0,ni-n+1);
+    const hh=hist.hourly, e=hh.time.length;       // includes the rest of today (forecast_days=1)
+    const Ph=arr=>hh.time.slice(s0,e).map((t,i)=>[Date.parse(t), arr[s0+i]??0]);
+    const t1=Date.parse(hh.time[e-1]);
+    series=[
+      {name:'Precip',type:'bar',yAxisIndex:1,data:Ph(hh.precipitation),color:CH.rain,
+       tooltip:{valueFormatter:v=>r1(v)+' mm'}},
+      {name:'Wind',type:'line',yAxisIndex:2,data:Ph(hh.wind_speed_10m),symbol:'none',color:CH.wind,
+       lineStyle:{color:CH.wind,width:1.3,type:'dashed'},
+       tooltip:{valueFormatter:v=>Math.round(v)+' km/h'}},
+      {name:'Temp',type:'line',data:Ph(hh.temperature_2m),symbol:'none',z:5,color:CH.temp,
+       lineStyle:{color:CH.temp,width:2.4},tooltip:{valueFormatter:v=>Math.round(v)+' °C'},
+       markLine:{symbol:'none',lineStyle:{color:CH.accent,type:'dashed'},
+         label:{formatter:'now',color:CH.accent},data:[{xAxis:nowMs}]},
+       markArea:{silent:true,itemStyle:{color:'rgba(77,163,255,.06)'},
+         data:[[{xAxis:nowMs},{xAxis:t1}]]}}
+    ];
   }
-  const n=times.length; if(!n){ svg.style.display='none'; return; }
-
-  const tmin=Math.floor(Math.min(...temps)-1), tmax=Math.ceil(Math.max(...temps)+1);
-  const pmax=Math.max(1,...precs);
-  const wmax=winds?Math.max(20,...winds):0;
-  const X=i=>L+plotW*(n===1?0.5:i/(n-1));
-  const Yt=v=>T+plotH*(1-(v-tmin)/(tmax-tmin||1));
-  const Yp=v=>T+plotH*(1-v/pmax);
-  const Yw=v=>T+plotH*(1-v/(wmax||1));
-  let s='';
-
-  // grid + temp axis
-  const steps=4;
-  for(let g=0;g<=steps;g++){
-    const tv=tmin+(tmax-tmin)*g/steps, y=Yt(tv);
-    s+=`<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="#2a3242" stroke-width="1"/>`;
-    s+=`<text x="${L-5}" y="${y+4}" fill="#8b96a8" font-size="11" text-anchor="end">${Math.round(tv)}°</text>`;
-  }
-  s+=`<text x="${W-R+5}" y="${T+10}" fill="#3d8bfd" font-size="11">${r1(pmax)}mm</text>`;
-  s+=`<text x="${W-R+5}" y="${T+plotH}" fill="#3d8bfd" font-size="11">0</text>`;
-
-  // precip bars (future = lighter)
-  const bw=Math.max(1.2,plotW/n*0.72);
-  for(let i=0;i<n;i++){
-    if(precs[i]<=0) continue;
-    const h=plotH*(precs[i]/pmax);
-    const op=(nowI>=0&&i>nowI)?'.4':'.85';
-    s+=`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${(T+plotH-h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="#3d8bfd" opacity="${op}" rx="1"/>`;
-  }
-  // wind line
-  if(winds){
-    s+=`<polyline fill="none" stroke="#8b96a8" stroke-width="1.4" stroke-dasharray="4 3" points="${winds.map((v,i)=>`${X(i).toFixed(1)},${Yw(v).toFixed(1)}`).join(' ')}"/>`;
-    s+=`<text x="${W-R+5}" y="${Yw(winds[winds.length-1])+4}" fill="#8b96a8" font-size="10">${Math.round(winds[winds.length-1])}km/h</text>`;
-  }
-  // temp line: solid up to now, dashed for the forecast part
-  const tPts=(a,off)=>a.map((v,i)=>`${X(i+off).toFixed(1)},${Yt(v).toFixed(1)}`).join(' ');
-  if(nowI>=0 && nowI<n-1){
-    s+=`<polyline fill="none" stroke="#ff8f5e" stroke-width="2.2" stroke-linejoin="round" points="${tPts(temps.slice(0,nowI+1),0)}"/>`;
-    s+=`<polyline fill="none" stroke="#ff8f5e" stroke-width="2" stroke-dasharray="5 4" opacity=".75" points="${tPts(temps.slice(nowI),nowI)}"/>`;
-  }else{
-    s+=`<polyline fill="none" stroke="#ff8f5e" stroke-width="2.2" stroke-linejoin="round" points="${tPts(temps,0)}"/>`;
-  }
-  // "now" marker
-  if(nowI>=0 && nowI<n-1){
-    s+=`<line x1="${X(nowI).toFixed(1)}" y1="${T}" x2="${X(nowI).toFixed(1)}" y2="${T+plotH}" stroke="#4da3ff" stroke-width="1.3" stroke-dasharray="3 3"/>`;
-    s+=`<text x="${X(nowI).toFixed(1)}" y="${T-4}" fill="#4da3ff" font-size="11" text-anchor="middle">now</text>`;
-  }
-
-  // x labels
-  if(daily){
-    const every=Math.ceil(n/8);
-    for(let i=0;i<n;i+=every)
-      s+=`<text x="${X(i).toFixed(1)}" y="${H-9}" fill="#8b96a8" font-size="11" text-anchor="middle">${times[i].slice(8,10)}/${times[i].slice(5,7)}</text>`;
-  }else{
-    const every=histRange==='24h'?4:histRange==='48h'?8:24;
-    for(let i=0;i<n;i++){
-      const hh=times[i].slice(11,13);
-      if(histRange!=='7d' && i%every===0)
-        s+=`<text x="${X(i).toFixed(1)}" y="${H-9}" fill="#8b96a8" font-size="11" text-anchor="middle">${hh}h</text>`;
-      if(hh==='00'){
-        s+=`<line x1="${X(i).toFixed(1)}" y1="${T}" x2="${X(i).toFixed(1)}" y2="${T+plotH}" stroke="#2a3242" stroke-width="1" stroke-dasharray="2 3"/>`;
-        if(histRange==='7d')
-          s+=`<text x="${X(i).toFixed(1)}" y="${H-9}" fill="#8b96a8" font-size="11" text-anchor="middle">${dayName(times[i].slice(0,10))}</text>`;
-      }
-    }
-  }
-  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
-  svg.style.width=(z*100)+'%';
-  svg.innerHTML=s;
+  if(!histChart) histChart=echarts.init(el);
+  histChart.setOption({
+    animation:false,
+    legend:chLegend(),
+    tooltip:chTooltip(),
+    grid:{left:40,right:44,top:30,bottom:52},
+    xAxis:chXTime(),
+    yAxis:[chYTemp(),chYRain(),chYHidden(20,1.25)],
+    dataZoom:chZoom(),
+    series
+  },true);
+  histChart.resize();
 }
 
 function renderAccums(){
@@ -1105,7 +1003,6 @@ function renderAccums(){
 (function init(){
   renderChips();
   applyFtab();
-  addPinch('hist'); addPinch('fc');
   for(const b of $('histSeg').children) b.classList.toggle('on', b.dataset.range===histRange);
   showPage(ui.page);
   let last=null;

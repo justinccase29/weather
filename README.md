@@ -1,7 +1,10 @@
 # Bike Weather 🚴
 
-A single-file, personal weather app tuned for bike commuting. Everything lives in
+A personal weather app tuned for bike commuting. All logic lives in
 [index.html](index.html) — no build step, no API keys, no account.
+`icon-*.png` + `manifest.json` give it a proper icon and standalone window
+when added to the home screen. Charts use ECharts (CDN) with built-in
+pinch/slider zoom, tooltips, and toggleable legends.
 
 ## Data sources (all free / open)
 
