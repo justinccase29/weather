@@ -313,7 +313,7 @@ footer a{color:var(--dim)}
     Wind: <a href="https://windy.com" target="_blank">Windy</a><br>
     <span data-i18n="bike">🚴 dot = bike-commute comfort (rain / gusts / extreme temp)</span><br>
     <div class="seg" id="langSeg" style="display:inline-flex;margin:8px 0 4px"><button data-lang="en" class="on">EN</button><button data-lang="fr">FR</button></div><br>
-    Bike Weather <b>v11</b>
+    Bike Weather <b>v12</b>
   </footer>
 </div>
 
@@ -743,8 +743,28 @@ let fcChart=null, histChart=null;
 const CH={txt:'#e8edf4',dim:'#8b96a8',line:'#2a3242',card:'#1e2532',
          temp:'#ff8f5e',rain:'#3d8bfd',wind:'#8b96a8',sun:'#ffd54d',accent:'#4da3ff'};
 const chLegend=()=>({top:0,textStyle:{color:CH.dim,fontSize:11},itemWidth:14,itemHeight:8,inactiveColor:'#3a4356'});
-const chTooltip=()=>({trigger:'axis',backgroundColor:CH.card,borderColor:CH.line,
-  textStyle:{color:CH.txt,fontSize:12},axisPointer:{type:'cross',label:{backgroundColor:CH.line}}});
+/* "Thursday 9 - 15h45" style datetime */
+function fmtDT(ms,dateOnly){
+  const d=new Date(ms);
+  const wd=cap(d.toLocaleDateString(LOC(),{weekday:'long'}));
+  if(dateOnly) return `${wd} ${d.getDate()} ${d.toLocaleDateString(LOC(),{month:'short'})}`;
+  return `${wd} ${d.getDate()} - ${String(d.getHours()).padStart(2,'0')}h${String(d.getMinutes()).padStart(2,'0')}`;
+}
+const chTooltip=(fmtMap,dateOnly)=>({trigger:'axis',backgroundColor:CH.card,borderColor:CH.line,
+  textStyle:{color:CH.txt,fontSize:12},
+  axisPointer:{type:'cross',label:{backgroundColor:CH.line,
+    formatter:p=>p.axisDimension==='x'?fmtDT(p.value,dateOnly):(Math.round(p.value*10)/10)}},
+  formatter:ps=>{
+    if(!Array.isArray(ps)||!ps.length) return '';
+    let out=`<div style="font-weight:700;margin-bottom:3px">${fmtDT(ps[0].axisValue,dateOnly)}</div>`;
+    for(const p of ps){
+      const v=Array.isArray(p.value)?p.value[1]:p.value;
+      if(v==null) continue;
+      const f=(fmtMap&&fmtMap[p.seriesName])||(x=>x);
+      out+=`${p.marker} ${p.seriesName}: <b>${f(v)}</b><br>`;
+    }
+    return out;
+  }});
 const chZoom=(endPct=100)=>[{type:'inside',start:0,end:endPct},
   {type:'slider',start:0,end:endPct,height:16,bottom:4,borderColor:CH.line,
   backgroundColor:'transparent',fillerColor:'rgba(77,163,255,.15)',
@@ -752,8 +772,15 @@ const chZoom=(endPct=100)=>[{type:'inside',start:0,end:endPct},
 const chToolbox=()=>({right:4,top:0,itemSize:16,
   feature:{restore:{title:'Reset view'}},
   iconStyle:{borderColor:CH.dim},emphasis:{iconStyle:{borderColor:CH.accent}}});
-const chXTime=()=>({type:'time',axisLine:{lineStyle:{color:CH.line}},
-  axisLabel:{color:CH.dim,hideOverlap:true},splitLine:{show:false}});
+const chXTime=(daily=false)=>({type:'time',axisLine:{lineStyle:{color:CH.line}},
+  splitLine:{show:false},
+  axisLabel:{color:CH.dim,hideOverlap:true,formatter:v=>{
+    const d=new Date(v);
+    if(daily) return d.toLocaleDateString(LOC(),{day:'numeric',month:'short'});
+    if(d.getHours()===0&&d.getMinutes()===0)
+      return d.toLocaleDateString(LOC(),{weekday:'short',day:'numeric'});
+    return String(d.getHours()).padStart(2,'0')+'h'+(d.getMinutes()?String(d.getMinutes()).padStart(2,'0'):'');
+  }}});
 const chYTemp=()=>({type:'value',position:'left',
   min:v=>Math.floor(v.min-1),max:v=>Math.ceil(v.max+1),
   axisLabel:{color:CH.dim,formatter:'{value}°'},splitLine:{lineStyle:{color:CH.line}}});
@@ -854,7 +881,12 @@ function renderFcGraph(){
   fcChart.setOption({
     animation:false,
     legend:chLegend(),
-    tooltip:chTooltip(),
+    tooltip:chTooltip({
+      [t('sunshine')]:v=>Math.round(v)+' W/m²',
+      [t('precip')]:v=>r1(v)+' mm/15min',
+      [t('windk')]:v=>Math.round(v)+' km/h',
+      [t('temp')]:v=>Math.round(v)+' °C'
+    }),
     toolbox:chToolbox(),
     grid:{left:40,right:44,top:30,bottom:52},
     xAxis:chXTime(),
@@ -1075,13 +1107,20 @@ function renderHistory(){
     ];
   }
   if(!histChart) histChart=echarts.init(el);
+  const daily31=histRange==='31d';
   histChart.setOption({
     animation:false,
     legend:chLegend(),
-    tooltip:chTooltip(),
+    tooltip:chTooltip({
+      [t('precip')]:v=>r1(v)+' mm',
+      [t('windk')]:v=>Math.round(v)+' km/h',
+      [t('temp')]:v=>Math.round(v)+' °C',
+      [t('maxtemp')]:v=>Math.round(v)+' °C',
+      [t('mintemp')]:v=>Math.round(v)+' °C'
+    }, daily31),
     toolbox:chToolbox(),
     grid:{left:40,right:44,top:30,bottom:52},
-    xAxis:chXTime(),
+    xAxis:chXTime(daily31),
     yAxis:[chYTemp(),chYRain(),chYHidden(20,1.25)],
     dataZoom:chZoom(),
     series
