@@ -89,8 +89,26 @@ section{margin-top:14px}
 .hcell .ht{font-size:11px;color:var(--dim)}
 .hcell .hi{font-size:19px;margin:3px 0}
 .hcell .hv{font-size:14px;font-weight:600}
+.hcell .hf{font-size:11px;color:var(--dim);margin-top:1px}
 .hcell .hp{font-size:11px;color:var(--rain);margin-top:2px}
 .hcell.tmw{opacity:.65}
+
+/* ---------- minutecast dial ---------- */
+.mcwrap{display:flex;justify-content:center;margin:6px 0 2px}
+#mcDial{width:225px;max-width:78%;height:auto}
+
+/* ---------- weather alerts ---------- */
+.alert{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--bad);
+       border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
+.ahead{display:flex;align-items:center;gap:8px}
+.adot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.aname{font-weight:600;font-size:13.5px}
+.aarea{color:var(--dim);font-size:12px;flex:1;text-align:right;white-space:nowrap;
+       overflow:hidden;text-overflow:ellipsis}
+.achev{color:var(--dim);font-size:11px;transition:transform .2s}
+.alert.open .achev{transform:rotate(180deg)}
+.abody{display:none;color:var(--dim);font-size:13px;margin-top:8px;white-space:pre-line}
+.alert.open .abody{display:block}
 
 /* ---------- minutecast ---------- */
 #mcSummary{font-size:14.5px;font-weight:600;margin-bottom:10px}
@@ -186,6 +204,9 @@ footer a{color:var(--dim)}
 <div class="wrap">
 
   <div class="page" id="page-now">
+  <!-- ALERTS -->
+  <section id="alertsBox" style="display:none"></section>
+
   <!-- NOW -->
   <section>
     <div class="card" id="nowCard">
@@ -196,7 +217,7 @@ footer a{color:var(--dim)}
   <!-- TODAY HIGH / LOW -->
   <section>
     <div class="card">
-      <div class="cardtitle"><h2>Today's weather</h2><span class="hdate" id="hlDate"></span></div>
+      <div class="cardtitle"><h2 data-i18n="today_wx">Today's weather</h2><span class="hdate" id="hlDate"></span></div>
       <div id="hlRows"></div>
     </div>
   </section>
@@ -204,8 +225,9 @@ footer a{color:var(--dim)}
   <!-- MINUTECAST -->
   <section>
     <div class="card">
-      <div class="cardtitle"><h2>Next 3 hours — precipitation</h2></div>
+      <div class="cardtitle"><h2 data-i18n="next3h">MinuteCast — precipitation</h2></div>
       <div id="mcSummary" class="skel">…</div>
+      <div class="mcwrap"><svg id="mcDial" viewBox="0 0 260 260" style="display:none"></svg></div>
       <svg id="mcChart" viewBox="0 0 720 110" preserveAspectRatio="none" style="display:none"></svg>
     </div>
   </section>
@@ -213,7 +235,7 @@ footer a{color:var(--dim)}
   <!-- REST OF TODAY -->
   <section>
     <div class="card">
-      <div class="cardtitle"><h2>Rest of today</h2></div>
+      <div class="cardtitle"><h2 data-i18n="rest">Rest of today</h2></div>
       <div class="hstrip" id="todayStrip"></div>
     </div>
   </section>
@@ -232,11 +254,11 @@ footer a{color:var(--dim)}
   <section>
     <div class="card">
       <div class="cardtitle">
-        <h2>Forecast</h2>
+        <h2 data-i18n="forecast_t">Forecast</h2>
         <div class="seg">
-          <button id="tabHourly" class="on">Hourly</button>
-          <button id="tabDaily">Daily</button>
-          <button id="tabGraph">Graph</button>
+          <button id="tabHourly" class="on" data-i18n="hourly">Hourly</button>
+          <button id="tabDaily" data-i18n="daily">Daily</button>
+          <button id="tabGraph" data-i18n="graph">Graph</button>
         </div>
       </div>
       <div id="hourlyList"><div class="skel">…</div></div>
@@ -254,11 +276,11 @@ footer a{color:var(--dim)}
   <section>
     <div class="card">
       <div class="cardtitle">
-        <h2>Map</h2>
+        <h2 data-i18n="map_t">Map</h2>
         <div class="seg">
           <button id="mapModeGeomet" class="on" title="1 km Canadian radar + HRDPS forecast">Radar HD</button>
-          <button id="mapModeRadar" title="Global radar (RainViewer)">Global</button>
-          <button id="mapModeWind">Wind</button>
+          <button id="mapModeRadar" data-i18n="global" title="Global radar (RainViewer)">Global</button>
+          <button id="mapModeWind" data-i18n="wind">Wind</button>
         </div>
       </div>
       <div id="mapDiv"></div>
@@ -278,12 +300,12 @@ footer a{color:var(--dim)}
   <section>
     <div class="card">
       <div class="cardtitle">
-        <h2>Past weather</h2>
+        <h2 data-i18n="past_t">Past weather</h2>
         <div class="seg" id="histSeg">
-          <button data-range="24h">24h</button>
-          <button data-range="48h" class="on">48h</button>
-          <button data-range="7d">7d</button>
-          <button data-range="31d">31d</button>
+          <button data-range="24h" data-i18n="r24">24h</button>
+          <button data-range="48h" class="on" data-i18n="r48">48h</button>
+          <button data-range="7d" data-i18n="r7">7d</button>
+          <button data-range="31d" data-i18n="r31">31d</button>
         </div>
       </div>
       <div id="meteogram" class="chart" style="display:none"></div>
@@ -298,16 +320,17 @@ footer a{color:var(--dim)}
     Data: <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> ·
     Radar: <a href="https://rainviewer.com" target="_blank">RainViewer</a> ·
     Wind: <a href="https://windy.com" target="_blank">Windy</a><br>
-    🚴 dot = bike-commute comfort (rain / gusts / extreme temp)<br>
-    Bike Weather <b>v8</b>
+    <span data-i18n="bike">🚴 dot = bike-commute comfort (rain / gusts / extreme temp)</span><br>
+    <div class="seg" id="langSeg" style="display:inline-flex;margin:8px 0 4px"><button data-lang="en" class="on">EN</button><button data-lang="fr">FR</button></div><br>
+    Bike Weather <b>v9</b>
   </footer>
 </div>
 
 <nav id="tabbar">
-  <button data-page="now">🌡️<span>Now</span></button>
-  <button data-page="forecast">📅<span>Forecast</span></button>
-  <button data-page="map">🗺️<span>Map</span></button>
-  <button data-page="history">📈<span>History</span></button>
+  <button data-page="now">🌡️<span data-i18n="nav_now">Now</span></button>
+  <button data-page="forecast">📅<span data-i18n="nav_fc">Forecast</span></button>
+  <button data-page="map">🗺️<span data-i18n="nav_map">Map</span></button>
+  <button data-page="history">📈<span data-i18n="nav_hist">History</span></button>
 </nav>
 
 <!-- SEARCH OVERLAY -->
@@ -335,24 +358,27 @@ function toast(msg, ms=3200){
   clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none', ms);
 }
 function dateAdd(ds,n){ const d=new Date(ds+"T00:00:00Z"); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
-function dayName(ds){ return new Date(ds+"T12:00:00").toLocaleDateString(undefined,{weekday:'short'}); }
-function dayLong(ds){ return new Date(ds+"T12:00:00").toLocaleDateString(undefined,{weekday:'long', day:'numeric', month:'short'}); }
+function dayName(ds){ return new Date(ds+"T12:00:00").toLocaleDateString(LOC(),{weekday:'short'}); }
+function dayLong(ds){ return new Date(ds+"T12:00:00").toLocaleDateString(LOC(),{weekday:'long', day:'numeric', month:'short'}); }
 const r1 = x => Math.round(x*10)/10;
+const cap = s => s ? s.charAt(0).toUpperCase()+s.slice(1) : '';
 
-/* WMO weather codes → [emoji, description] */
+/* WMO weather codes → [emoji, description EN, description FR] */
 const WMO = {
-  0:['☀️','Clear'],1:['🌤️','Mostly clear'],2:['⛅','Partly cloudy'],3:['☁️','Overcast'],
-  45:['🌫️','Fog'],48:['🌫️','Icy fog'],
-  51:['🌦️','Light drizzle'],53:['🌦️','Drizzle'],55:['🌧️','Heavy drizzle'],
-  56:['🌧️','Freezing drizzle'],57:['🌧️','Freezing drizzle'],
-  61:['🌧️','Light rain'],63:['🌧️','Rain'],65:['🌧️','Heavy rain'],
-  66:['🌧️','Freezing rain'],67:['🌧️','Freezing rain'],
-  71:['🌨️','Light snow'],73:['🌨️','Snow'],75:['❄️','Heavy snow'],77:['🌨️','Snow grains'],
-  80:['🌦️','Light showers'],81:['🌧️','Showers'],82:['⛈️','Violent showers'],
-  85:['🌨️','Snow showers'],86:['❄️','Snow showers'],
-  95:['⛈️','Thunderstorm'],96:['⛈️','Storm + hail'],99:['⛈️','Storm + hail']
+  0:['☀️','Clear','Ciel dégagé'],1:['🌤️','Mostly clear','Généralement dégagé'],
+  2:['⛅','Partly cloudy','Partiellement nuageux'],3:['☁️','Overcast','Couvert'],
+  45:['🌫️','Fog','Brouillard'],48:['🌫️','Icy fog','Brouillard givrant'],
+  51:['🌦️','Light drizzle','Bruine faible'],53:['🌦️','Drizzle','Bruine'],55:['🌧️','Heavy drizzle','Bruine forte'],
+  56:['🌧️','Freezing drizzle','Bruine verglaçante'],57:['🌧️','Freezing drizzle','Bruine verglaçante'],
+  61:['🌧️','Light rain','Pluie faible'],63:['🌧️','Rain','Pluie'],65:['🌧️','Heavy rain','Pluie forte'],
+  66:['🌧️','Freezing rain','Pluie verglaçante'],67:['🌧️','Freezing rain','Pluie verglaçante'],
+  71:['🌨️','Light snow','Neige faible'],73:['🌨️','Snow','Neige'],75:['❄️','Heavy snow','Neige forte'],
+  77:['🌨️','Snow grains','Grains de neige'],
+  80:['🌦️','Light showers','Averses faibles'],81:['🌧️','Showers','Averses'],82:['⛈️','Violent showers','Averses violentes'],
+  85:['🌨️','Snow showers','Averses de neige'],86:['❄️','Snow showers','Averses de neige'],
+  95:['⛈️','Thunderstorm','Orage'],96:['⛈️','Storm + hail','Orage avec grêle'],99:['⛈️','Storm + hail','Orage avec grêle']
 };
-const wmo = c => WMO[c] || ['❔','—'];
+const wmo = c => { const e=WMO[c]; return e ? [e[0], ui.lang==='fr'?e[2]:e[1]] : ['❔','—']; };
 function nightIcon(code, isDay){
   if(isDay!==0) return wmo(code)[0];
   if(code===0) return '🌙'; if(code===1||code===2) return '☁️';
@@ -377,9 +403,75 @@ function bikeClass(prob, mm, gust, temp){
 /* ================= state / storage ================= */
 const DEFAULT_LOC={name:'Montréal', lat:45.5088, lon:-73.5878};
 const LS_SAVED='bw_saved', LS_LAST='bw_last', LS_UI='bw_ui';
-let ui={page:'now', ftab:'hourly', mmode:'geomet', hrange:'48h'};
+let ui={page:'now', ftab:'hourly', mmode:'geomet', hrange:'48h', lang:'en'};
 try{ Object.assign(ui, JSON.parse(localStorage.getItem(LS_UI)||'{}')); }catch(e){}
 const saveUI=()=>localStorage.setItem(LS_UI, JSON.stringify(ui));
+
+/* ================= i18n ================= */
+const I18N={
+en:{
+  next3h:'MinuteCast — precipitation', today_wx:"Today's weather", rest:'Rest of today',
+  forecast_t:'Forecast', map_t:'Map', past_t:'Past weather',
+  hourly:'Hourly', daily:'Daily', graph:'Graph', global:'Global', wind:'Wind',
+  nav_now:'Now', nav_fc:'Forecast', nav_map:'Map', nav_hist:'History',
+  high:'High', low:'Low', tonight:'Tonight',
+  gusts:'Gusts', humidity:'Humidity', precipnow:'Precip now', windk:'Wind',
+  daylight:'of daylight', feels:'feels', feelslike:'Feels like',
+  humidex:' (humidex)', windchill:' (wind chill)',
+  mc_none:'☂️ No precipitation expected for the next 3 hours.',
+  mc_cont:'🌧️ Precipitation continuing for the next 3 hours.',
+  mc_end:m=>`🌧️ Precipitation ending in ~${m} min.`,
+  mc_start:m=>`🌧️ Precipitation starting in ~${m} min`,
+  mc_endat:m=>`, ending ~${m} min from now`,
+  heavy:' Heavy at times.', moderate:' Moderate intensity.',
+  dial_dry:'dry hour', dial_in:m=>`in ${m} min`, dial_for:m=>`for ~${m} min`,
+  temp:'Temp', precip:'Precip', sunshine:'Sunshine', maxtemp:'Max temp', mintemp:'Min temp',
+  today:'Today', yesterday:'Yesterday', d7:'7 days', d30:'30 days', sofar:'so far', rainyd:'rainy d.',
+  updated:'updated', search_ph:'Search city or place…', edit:'✎ edit', done:'✓ done',
+  remove:n=>`Remove "${n}" from saved locations?`, noresults:'No results',
+  fcast_tag:'forecast', nowword:'now',
+  r24:'24h', r48:'48h', r7:'7d', r31:'31d',
+  bike:'🚴 dot = bike-commute comfort (rain / gusts / extreme temp)'
+},
+fr:{
+  next3h:'MinuteCast — précipitations', today_wx:'Météo du jour', rest:'Reste de la journée',
+  forecast_t:'Prévisions', map_t:'Carte', past_t:'Météo passée',
+  hourly:'Horaire', daily:'Quotidien', graph:'Graphique', global:'Mondial', wind:'Vent',
+  nav_now:'Actuel', nav_fc:'Prévisions', nav_map:'Carte', nav_hist:'Historique',
+  high:'Max', low:'Min', tonight:'Cette nuit',
+  gusts:'Rafales', humidity:'Humidité', precipnow:'Précip.', windk:'Vent',
+  daylight:'de clarté', feels:'ressenti', feelslike:'Ressenti',
+  humidex:' (humidex)', windchill:' (refroid. éolien)',
+  mc_none:'☂️ Aucune précipitation prévue au cours des 3 prochaines heures.',
+  mc_cont:'🌧️ Précipitations pour les 3 prochaines heures.',
+  mc_end:m=>`🌧️ Fin des précipitations dans ~${m} min.`,
+  mc_start:m=>`🌧️ Précipitations débutant dans ~${m} min`,
+  mc_endat:m=>`, se terminant dans ~${m} min`,
+  heavy:' Fortes par moments.', moderate:' Intensité modérée.',
+  dial_dry:'heure au sec', dial_in:m=>`dans ${m} min`, dial_for:m=>`~${m} min`,
+  temp:'Temp', precip:'Précip', sunshine:'Soleil', maxtemp:'Temp max', mintemp:'Temp min',
+  today:"Aujourd'hui", yesterday:'Hier', d7:'7 jours', d30:'30 jours', sofar:"jusqu'ici", rainyd:'j. de pluie',
+  updated:'màj', search_ph:'Rechercher une ville…', edit:'✎ modifier', done:'✓ ok',
+  remove:n=>`Retirer «${n}» des lieux enregistrés ?`, noresults:'Aucun résultat',
+  fcast_tag:'prévision', nowword:'maint.',
+  r24:'24 h', r48:'48 h', r7:'7 j', r31:'31 j',
+  bike:'🚴 point = confort vélo (pluie / rafales / temp. extrême)'
+}};
+const t=k=>I18N[ui.lang==='fr'?'fr':'en'][k]??k;
+function LOC(){ return ui.lang==='fr'?'fr-CA':'en-CA'; }
+function applyLang(){
+  document.documentElement.lang=ui.lang;
+  for(const el of document.querySelectorAll('[data-i18n]')) el.textContent=t(el.dataset.i18n);
+  $('searchInput').placeholder=t('search_ph');
+  for(const b of document.querySelectorAll('#langSeg button'))
+    b.classList.toggle('on', b.dataset.lang===ui.lang);
+}
+function renderAll(){
+  renderChips();
+  if(!data) return;
+  renderNow(); renderMinutecast(); renderToday(); renderHourly(); renderDaily();
+  renderFcGraph(); renderHistory(); renderAccums(); renderAlerts();
+}
 let loc=null;              // {name, lat, lon}
 let data=null;             // main forecast payload
 let hist=null;             // history payload
@@ -415,7 +507,7 @@ function renderChips(){
     el.querySelector('span').onclick=()=>{ if(!chipEdit) setLocation(s); };
     if(chipEdit) el.querySelector('.x').onclick=(e)=>{
       e.stopPropagation();
-      if(confirm(`Remove "${s.name}" from saved locations?`)){
+      if(confirm(t('remove')(s.name))){
         setSaved(saved.filter(x=>!(x.lat===s.lat&&x.lon===s.lon)));
         renderChips(); updateSaveBtn();
       }
@@ -425,7 +517,7 @@ function renderChips(){
   if(saved.length){
     const eb=document.createElement('div');
     eb.className='chip'; eb.style.borderStyle='dashed'; eb.style.color='var(--dim)';
-    eb.textContent=chipEdit?'✓ done':'✎ edit';
+    eb.textContent=chipEdit?t('done'):t('edit');
     eb.onclick=()=>{ chipEdit=!chipEdit; renderChips(); };
     c.appendChild(eb);
   }
@@ -482,7 +574,7 @@ $('searchInput').addEventListener('input',e=>{
         el.onclick=()=>{ closeSearch(); setLocation({name:g.name,lat:+g.latitude.toFixed(4),lon:+g.longitude.toFixed(4)}); };
         res.appendChild(el);
       }
-      if(!(j.results||[]).length) res.innerHTML='<div class="skel">No results</div>';
+      if(!(j.results||[]).length) res.innerHTML=`<div class="skel">${t('noresults')}</div>`;
     }catch(e){ toast('Search failed — check connection'); }
   },350);
 });
@@ -513,7 +605,8 @@ async function fetchAll(force){
     renderNow(); renderMinutecast(); renderToday(); renderHourly(); renderDaily(); renderFcGraph();
     renderHistory(); renderAccums();
     updateMapLocation();
-    $('locSub').textContent = `${loc.lat.toFixed(3)}, ${loc.lon.toFixed(3)} · updated ${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
+    fetchAlerts();
+    $('locSub').textContent = `${loc.lat.toFixed(3)}, ${loc.lon.toFixed(3)} · ${t('updated')} ${new Date().toLocaleTimeString(LOC(),{hour:'2-digit',minute:'2-digit'})}`;
   }catch(e){
     console.error(e);
     toast('Could not load weather data: '+e.message, 5000);
@@ -526,30 +619,30 @@ function renderNow(){
   const [_,desc]=wmo(c.weather_code);
   const icon=nightIcon(c.weather_code,c.is_day);
   const feelDiff=c.apparent_temperature-c.temperature_2m;
-  const feelNote=Math.abs(feelDiff)<1.5?'': (feelDiff>0?' (humidex)':' (wind chill)');
+  const feelNote=Math.abs(feelDiff)<1.5?'': (feelDiff>0?t('humidex'):t('windchill'));
   $('nowCard').innerHTML=`
     <div class="now-main">
       <div class="now-icon">${icon}</div>
       <div class="now-temp">${Math.round(c.temperature_2m)}<sup>°C</sup></div>
       <div class="now-desc">
         <div class="d1">${desc}</div>
-        <div class="d2">Feels like <b>${Math.round(c.apparent_temperature)}°</b>${feelNote}</div>
+        <div class="d2">${t('feelslike')} <b>${Math.round(c.apparent_temperature)}°</b>${feelNote}</div>
       </div>
     </div>
     <div class="now-grid">
       <div class="nk"><div class="v">${Math.round(c.wind_speed_10m)}<small> km/h</small></div>
-        <div class="k">Wind ${windArrow(c.wind_direction_10m)} ${compass(c.wind_direction_10m)}</div></div>
+        <div class="k">${t('windk')} ${windArrow(c.wind_direction_10m)} ${compass(c.wind_direction_10m)}</div></div>
       <div class="nk"><div class="v">${Math.round(c.wind_gusts_10m)}<small> km/h</small></div>
-        <div class="k">Gusts</div></div>
+        <div class="k">${t('gusts')}</div></div>
       <div class="nk"><div class="v">${c.relative_humidity_2m}<small>%</small></div>
-        <div class="k">Humidity</div></div>
+        <div class="k">${t('humidity')}</div></div>
       <div class="nk"><div class="v">${r1(c.precipitation)}<small> mm</small></div>
-        <div class="k">Precip now</div></div>
+        <div class="k">${t('precipnow')}</div></div>
     </div>`;
   const sr=data.daily.sunrise[0], ss=data.daily.sunset[0];
   const mins=Math.round((Date.parse(ss)-Date.parse(sr))/60000);
   $('sunRow').innerHTML=`<span>🌅 ${sr.slice(11,16)}</span>
-    <span class="mid">☀️ ${Math.floor(mins/60)} h ${String(mins%60).padStart(2,'0')} of daylight</span>
+    <span class="mid">☀️ ${Math.floor(mins/60)} h ${String(mins%60).padStart(2,'0')} ${t('daylight')}</span>
     <span>🌇 ${ss.slice(11,16)}</span>`;
 
   // today's high/low card (AccuWeather-style)
@@ -562,12 +655,12 @@ function renderNow(){
   // tonight's condition: ~22:00 today (or 01:00 tomorrow if already past)
   let ti=hr.time.indexOf(today+'T22:00'); if(ti<0) ti=hr.time.indexOf(tmw+'T01:00');
   const tCode=ti>-1?hr.weather_code[ti]:dl.weather_code[0];
-  $('hlDate').textContent=new Date(c.time).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+  $('hlDate').textContent=new Date(c.time).toLocaleDateString(LOC(),{weekday:'short',month:'short',day:'numeric'});
   $('hlRows').innerHTML=`
-    <div class="hlrow"><span class="lbl">High</span><span class="tv">${Math.round(dl.temperature_2m_max[0])}°</span>
+    <div class="hlrow"><span class="lbl">${t('high')}</span><span class="tv">${Math.round(dl.temperature_2m_max[0])}°</span>
       <span class="ic">${wmo(dl.weather_code[0])[0]}</span><span class="cond">${wmo(dl.weather_code[0])[1]}</span></div>
-    <div class="hlrow"><span class="lbl">Low</span><span class="tv">${Math.round(lowT)}°</span>
-      <span class="ic">${nightIcon(tCode,0)}</span><span class="cond">Tonight: ${wmo(tCode)[1]}</span></div>`;
+    <div class="hlrow"><span class="lbl">${t('low')}</span><span class="tv">${Math.round(lowT)}°</span>
+      <span class="ic">${nightIcon(tCode,0)}</span><span class="cond">${t('tonight')}: ${wmo(tCode)[1]}</span></div>`;
 }
 
 /* ================= rest of today strip ================= */
@@ -583,6 +676,7 @@ function renderToday(){
       <div class="ht"><span class="bike ${bc}"></span>${h.time[i].slice(11,16)}</div>
       <div class="hi">${nightIcon(h.weather_code[i],h.is_day[i])}</div>
       <div class="hv">${Math.round(h.temperature_2m[i])}°</div>
+      <div class="hf">${Math.round(h.apparent_temperature[i])}°</div>
       <div class="hp">${prob}%</div>
     </div>`);
     count++;
@@ -606,20 +700,20 @@ function renderMinutecast(){
   let txt;
   const firstWet=prec.findIndex(v=>v>=0.1);
   if(firstWet===-1){
-    txt='☂️ No precipitation expected for the next 3 hours.';
+    txt=t('mc_none');
   }else if(firstWet===0){
     let end=prec.findIndex((v,i)=>i>0&&v<0.1);
-    txt = end===-1 ? '🌧️ Precipitation continuing for the next 3 hours.'
-        : `🌧️ Precipitation ending in ~${end*15} min.`;
+    txt = end===-1 ? t('mc_cont') : t('mc_end')(end*15);
   }else{
-    txt=`🌧️ Precipitation starting in ~${firstWet*15} min`;
+    txt=t('mc_start')(firstWet*15);
     let end=prec.findIndex((v,i)=>i>firstWet&&v<0.1);
-    if(end>-1) txt+=`, ending ~${end*15} min from now`;
+    if(end>-1) txt+=t('mc_endat')(end*15);
     txt+='.';
   }
   const mx=Math.max(...prec);
-  if(mx>=2.5) txt+=' Heavy at times.'; else if(mx>=1) txt+=' Moderate intensity.';
+  if(mx>=2.5) txt+=t('heavy'); else if(mx>=1) txt+=t('moderate');
   sum.textContent=txt; sum.classList.remove('skel');
+  renderDial(prec, Math.max(0, Math.round((Date.parse(nowT)-Date.parse(m.time[si]))/60000)));
 
   // bar chart
   const W=720,H=110,pb=22,pt=8;
@@ -697,11 +791,11 @@ function renderHourly(){
   const h=data.hourly, out=[];
   let lastDate='';
   for(let i=0;i<h.time.length;i++){
-    const t=h.time[i], date=t.slice(0,10), hh=t.slice(11,16);
+    const tm=h.time[i], date=tm.slice(0,10), hh=tm.slice(11,16);
     if(date!==lastDate){
       lastDate=date;
       const today=date===data.current.time.slice(0,10);
-      out.push(`<div class="daysep">${today?'Today':dayLong(date)}</div>`);
+      out.push(`<div class="daysep">${today?t('today'):dayLong(date)}</div>`);
     }
     const prob=h.precipitation_probability?.[i]??0, mm=h.precipitation[i]??0;
     const bc=bikeClass(prob,mm,h.wind_gusts_10m[i],h.temperature_2m[i]);
@@ -709,7 +803,7 @@ function renderHourly(){
       <div class="t"><b>${hh}</b></div>
       <div class="ic">${nightIcon(h.weather_code[i],h.is_day[i])}</div>
       <div class="mid">
-        <div class="l1"><span class="bike ${bc}"></span>${Math.round(h.temperature_2m[i])}° <small style="color:var(--dim);font-weight:400">feels ${Math.round(h.apparent_temperature[i])}°</small></div>
+        <div class="l1"><span class="bike ${bc}"></span>${Math.round(h.temperature_2m[i])}° <small style="color:var(--dim);font-weight:400">${t('feels')} ${Math.round(h.apparent_temperature[i])}°</small></div>
         <div class="l2">${wmo(h.weather_code[i])[1]}</div>
       </div>
       <div class="rain">${prob}%${mm>=0.1?`<br><small>${r1(mm)} mm</small>`:''}</div>
@@ -724,7 +818,7 @@ function renderDaily(){
   for(let i=0;i<d.time.length;i++){
     const date=d.time[i];
     const today=date===data.current.time.slice(0,10);
-    const name=today?'Today':dayName(date)+' '+date.slice(8,10)+'/'+date.slice(5,7);
+    const name=today?t('today'):dayName(date)+' '+date.slice(8,10)+'/'+date.slice(5,7);
     const mm=d.precipitation_sum[i]??0;
     out.push(`<div class="frow">
       <div class="t"><b>${name}</b></div>
@@ -775,16 +869,16 @@ function renderFcGraph(){
     yAxis:[chYTemp(),chYRain(),chYHidden(20,1.25),chYHidden(400,1.05)],
     dataZoom:chZoom(endPct),
     series:[
-      {name:'Sunshine',type:'line',yAxisIndex:3,data:rad,symbol:'none',color:CH.sun,
+      {name:t('sunshine'),type:'line',yAxisIndex:3,data:rad,symbol:'none',color:CH.sun,
        lineStyle:{color:CH.sun,width:1.2},areaStyle:{color:'rgba(255,213,77,.15)'},
        tooltip:{valueFormatter:v=>Math.round(v)+' W/m²'},
        markArea:{silent:true,itemStyle:{color:'rgba(0,0,0,.25)'},data:nights}},
-      {name:'Precip',type:'bar',yAxisIndex:1,data:prec,color:CH.rain,
+      {name:t('precip'),type:'bar',yAxisIndex:1,data:prec,color:CH.rain,
        tooltip:{valueFormatter:v=>r1(v)+' mm/15min'}},
-      {name:'Wind',type:'line',yAxisIndex:2,data:wind,symbol:'none',color:CH.wind,
+      {name:t('windk'),type:'line',yAxisIndex:2,data:wind,symbol:'none',color:CH.wind,
        lineStyle:{color:CH.wind,width:1.3,type:'dashed'},
        tooltip:{valueFormatter:v=>Math.round(v)+' km/h'}},
-      {name:'Temp',type:'line',data:temp,symbol:'none',z:5,color:CH.temp,
+      {name:t('temp'),type:'line',data:temp,symbol:'none',z:5,color:CH.temp,
        lineStyle:{color:CH.temp,width:2.4},
        tooltip:{valueFormatter:v=>Math.round(v)+' °C'}}
     ]
@@ -888,11 +982,11 @@ function showFrame(i){
   const nx=s.frames[i+1];
   if(nx && !map.hasLayer(nx.layer)) nx.layer.addTo(map);   // preload next frame
   const diffMin=Math.round((f.timeMs-Date.now())/60000);
-  const rel=Math.abs(diffMin)<3?'now'
+  const rel=Math.abs(diffMin)<3?t('nowword')
     :(Math.abs(diffMin)>=90?(diffMin>0?'+':'')+Math.round(diffMin/6)/10+' h'
     :(diffMin>0?'+':'')+diffMin+' min');
-  $('radarTime').innerHTML=`${new Date(f.timeMs).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} (${rel})`
-    +(f.fcst?'<br><span style="color:var(--accent)">forecast</span>':'');
+  $('radarTime').innerHTML=`${new Date(f.timeMs).toLocaleTimeString(LOC(),{hour:'2-digit',minute:'2-digit'})} (${rel})`
+    +(f.fcst?`<br><span style="color:var(--accent)">${t('fcast_tag')}</span>`:'');
   $('radarSlider').value=i;
 }
 $('radarSlider').addEventListener('input',e=>showFrame(+e.target.value));
@@ -961,11 +1055,11 @@ function renderHistory(){
     const end=d.time.indexOf(today); const e2=end===-1?d.time.length:end+1;
     const Pd=arr=>d.time.slice(0,e2).map((t,i)=>[Date.parse(t)+12*3600e3, arr[i]??0]);
     series=[
-      {name:'Precip',type:'bar',yAxisIndex:1,data:Pd(d.precipitation_sum),color:CH.rain,
+      {name:t('precip'),type:'bar',yAxisIndex:1,data:Pd(d.precipitation_sum),color:CH.rain,
        tooltip:{valueFormatter:v=>r1(v)+' mm'}},
-      {name:'Max temp',type:'line',data:Pd(d.temperature_2m_max),symbol:'none',z:5,color:CH.temp,
+      {name:t('maxtemp'),type:'line',data:Pd(d.temperature_2m_max),symbol:'none',z:5,color:CH.temp,
        lineStyle:{color:CH.temp,width:2},tooltip:{valueFormatter:v=>Math.round(v)+' °C'}},
-      {name:'Min temp',type:'line',data:Pd(d.temperature_2m_min),symbol:'none',color:'#6fa8dc',
+      {name:t('mintemp'),type:'line',data:Pd(d.temperature_2m_min),symbol:'none',color:'#6fa8dc',
        lineStyle:{color:'#6fa8dc',width:1.6},tooltip:{valueFormatter:v=>Math.round(v)+' °C'}}
     ];
   }else{
@@ -975,15 +1069,15 @@ function renderHistory(){
     const Ph=arr=>hh.time.slice(s0,e).map((t,i)=>[Date.parse(t), arr[s0+i]??0]);
     const t1=Date.parse(hh.time[e-1]);
     series=[
-      {name:'Precip',type:'bar',yAxisIndex:1,data:Ph(hh.precipitation),color:CH.rain,
+      {name:t('precip'),type:'bar',yAxisIndex:1,data:Ph(hh.precipitation),color:CH.rain,
        tooltip:{valueFormatter:v=>r1(v)+' mm'}},
-      {name:'Wind',type:'line',yAxisIndex:2,data:Ph(hh.wind_speed_10m),symbol:'none',color:CH.wind,
+      {name:t('windk'),type:'line',yAxisIndex:2,data:Ph(hh.wind_speed_10m),symbol:'none',color:CH.wind,
        lineStyle:{color:CH.wind,width:1.3,type:'dashed'},
        tooltip:{valueFormatter:v=>Math.round(v)+' km/h'}},
-      {name:'Temp',type:'line',data:Ph(hh.temperature_2m),symbol:'none',z:5,color:CH.temp,
+      {name:t('temp'),type:'line',data:Ph(hh.temperature_2m),symbol:'none',z:5,color:CH.temp,
        lineStyle:{color:CH.temp,width:2.4},tooltip:{valueFormatter:v=>Math.round(v)+' °C'},
        markLine:{symbol:'none',lineStyle:{color:CH.accent,type:'dashed'},
-         label:{formatter:'now',color:CH.accent},data:[{xAxis:nowMs}]},
+         label:{formatter:t('nowword'),color:CH.accent},data:[{xAxis:nowMs}]},
        markArea:{silent:true,itemStyle:{color:'rgba(77,163,255,.06)'},
          data:[[{xAxis:nowMs},{xAxis:t1}]]}}
     ];
@@ -1026,10 +1120,10 @@ function renderAccums(){
   }
   const yIdx=d.time.indexOf(dateAdd(today,-1));
   const items=[
-    ['Today', sumHourly(today), 'so far'],
-    ['Yesterday', yIdx>-1?(d.precipitation_sum[yIdx]||0):0, ''],
-    ['7 days', sumHourly(dateAdd(today,-6)), rainyDays(dateAdd(today,-6))+' rainy d.'],
-    ['30 days', sumHourly(dateAdd(today,-29)), rainyDays(dateAdd(today,-29))+' rainy d.']
+    [t('today'), sumHourly(today), t('sofar')],
+    [t('yesterday'), yIdx>-1?(d.precipitation_sum[yIdx]||0):0, ''],
+    [t('d7'), sumHourly(dateAdd(today,-6)), rainyDays(dateAdd(today,-6))+' '+t('rainyd')],
+    [t('d30'), sumHourly(dateAdd(today,-29)), rainyDays(dateAdd(today,-29))+' '+t('rainyd')]
   ];
   for(const [k,v,note] of items){
     box.insertAdjacentHTML('beforeend',
@@ -1038,8 +1132,81 @@ function renderAccums(){
   }
 }
 
+/* ================= MinuteCast dial (next 60 min) ================= */
+function renderDial(prec, offMin){
+  const svg=$('mcDial');
+  const C=130, rIn=86, rOut=106;
+  const vAt=mn=>{const am=mn+offMin; const i=Math.min(prec.length-1,Math.floor(am/15));
+    const nx=Math.min(prec.length-1,i+1); return prec[i]+(prec[nx]-prec[i])*((am%15)/15);};
+  let s='';
+  for(let mnt=0;mnt<60;mnt++){
+    const v=vAt(mnt);
+    const col=v<0.05?'#2a3242':v<0.5?'#5ba3f5':v<2?'#3d8bfd':'#7a4dff';
+    const a=(mnt/60)*2*Math.PI - Math.PI/2;
+    s+=`<line x1="${(C+rIn*Math.cos(a)).toFixed(1)}" y1="${(C+rIn*Math.sin(a)).toFixed(1)}"`
+      +` x2="${(C+rOut*Math.cos(a)).toFixed(1)}" y2="${(C+rOut*Math.sin(a)).toFixed(1)}"`
+      +` stroke="${col}" stroke-width="5.5" stroke-linecap="round"/>`;
+  }
+  // clock labels: now at 12 o'clock, +15 at 3, +30 at 6, +45 at 9
+  s+=`<text x="${C}" y="14" fill="#4da3ff" font-size="12" font-weight="700" text-anchor="middle">${t('nowword').toUpperCase()}</text>`;
+  s+=`<text x="248" y="${C+4}" fill="#8b96a8" font-size="11" text-anchor="middle">+15</text>`;
+  s+=`<text x="${C}" y="254" fill="#8b96a8" font-size="11" text-anchor="middle">+30</text>`;
+  s+=`<text x="12" y="${C+4}" fill="#8b96a8" font-size="11" text-anchor="middle">+45</text>`;
+  // centre: precip status within the next hour
+  let fw=-1; for(let mn=0;mn<60;mn++) if(vAt(mn)>=0.1){ fw=mn; break; }
+  let icon,label;
+  if(fw===-1){ icon='☂️'; label=t('dial_dry'); }
+  else if(fw===0){
+    let fd=60; for(let mn=1;mn<60;mn++) if(vAt(mn)<0.1){ fd=mn; break; }
+    icon='🌧️'; label=t('dial_for')(fd);
+  }else{ icon='🌧️'; label=t('dial_in')(fw); }
+  s+=`<text x="${C}" y="${C-2}" font-size="34" text-anchor="middle">${icon}</text>`;
+  s+=`<text x="${C}" y="${C+28}" fill="#e8edf4" font-size="14" font-weight="600" text-anchor="middle">${label}</text>`;
+  svg.innerHTML=s; svg.style.display='block';
+}
+
+/* ================= Environment Canada weather alerts ================= */
+let alerts=[];
+async function fetchAlerts(){
+  if(!loc) return;
+  try{
+    const d=0.05;
+    const u=`https://api.weather.gc.ca/collections/weather-alerts/items?f=json&limit=20`
+      +`&bbox=${(loc.lon-d).toFixed(3)},${(loc.lat-d).toFixed(3)},${(loc.lon+d).toFixed(3)},${(loc.lat+d).toFixed(3)}`;
+    const j=await (await fetch(u)).json();
+    const rank={red:0,orange:1,yellow:2};
+    alerts=(j.features||[]).map(f=>f.properties)
+      .sort((a,b)=>(rank[a.risk_colour_en]??3)-(rank[b.risk_colour_en]??3));
+  }catch(e){ alerts=[]; }
+  renderAlerts();
+}
+function renderAlerts(){
+  const box=$('alertsBox');
+  if(!alerts.length){ box.style.display='none'; box.innerHTML=''; return; }
+  const fr=ui.lang==='fr';
+  box.style.display='';
+  box.innerHTML=alerts.map(a=>{
+    const col={red:'#ff4d4d',orange:'#ff9f43',yellow:'#f2c94c'}[a.risk_colour_en]||'#8b96a8';
+    const name=cap((fr?a.alert_name_fr:a.alert_name_en)||'');
+    const area=(fr?a.feature_name_fr:a.feature_name_en)||'';
+    const txt=((fr?a.alert_text_fr:a.alert_text_en)||'').trim();
+    return `<div class="alert" style="border-left-color:${col}">
+      <div class="ahead"><span class="adot" style="background:${col}"></span>
+        <span class="aname">⚠️ ${esc(name)}</span><span class="aarea">${esc(area)}</span><span class="achev">▾</span></div>
+      <div class="abody">${esc(txt)}</div></div>`;
+  }).join('');
+  for(const h of box.querySelectorAll('.ahead'))
+    h.onclick=()=>h.parentElement.classList.toggle('open');
+}
+
 /* ================= init ================= */
+$('langSeg').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  ui.lang=b.dataset.lang; saveUI(); applyLang(); renderAll();
+});
+
 (function init(){
+  applyLang();
   renderChips();
   applyFtab();
   for(const b of $('histSeg').children) b.classList.toggle('on', b.dataset.range===histRange);
