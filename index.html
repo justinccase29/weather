@@ -124,8 +124,9 @@ section{margin-top:14px}
 .frow .mid .l2{color:var(--dim);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .frow .rain{text-align:right;color:var(--rain);font-size:12.5px;min-width:44px}
 .frow .rain small{color:var(--dim)}
-.frow .hum{text-align:center;min-width:26px}
-.hdrop{width:23px;height:29px;display:block;margin:0 auto}
+.frow .hum{display:flex;align-items:center;justify-content:flex-end;gap:2px;min-width:42px}
+.hdrop{width:15px;height:20px;display:block;flex-shrink:0}
+.hnum{font-size:12.5px;color:var(--txt)}
 .frow .wind{text-align:right;font-size:12.5px;min-width:72px}
 .frow .wind small{color:var(--dim)}
 .bike{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:1px}
@@ -315,7 +316,7 @@ footer a{color:var(--dim)}
     Wind: <a href="https://windy.com" target="_blank">Windy</a><br>
     <span data-i18n="bike">🚴 dot = bike-commute comfort (rain / gusts / extreme temp)</span><br>
     <div class="seg" id="langSeg" style="display:inline-flex;margin:8px 0 4px"><button data-lang="en" class="on">EN</button><button data-lang="fr">FR</button></div><br>
-    Bike Weather <b>v14</b>
+    Bike Weather <b>v15</b>
   </footer>
 </div>
 
@@ -384,11 +385,11 @@ function compass(deg){
   const pts=['N','NE','E','SE','S','SW','W','NW'];
   return pts[Math.round(deg/45)%8];
 }
-/* humidity icon: droplet outline with the % inside */
-function humDrop(v){
-  return `<svg class="hdrop" viewBox="0 0 24 30">
-    <path d="M12 2C12 2 4 13 4 19a8 8 0 0 0 16 0C20 13 12 2 12 2Z" fill="none" stroke="#8b96a8" stroke-width="1.5"/>
-    <text x="12" y="21.6" text-anchor="middle" font-size="7.4" fill="#c9d4e4">${Math.round(v)}%</text></svg>`;
+/* humidity cell: droplet with a % inside + the value as a number beside it */
+function humCell(v){
+  return `<svg class="hdrop" viewBox="0 0 20 26">
+    <path d="M10 1.5C10 1.5 3.5 10.5 3.5 15.5a6.5 6.5 0 0 0 13 0C16.5 10.5 10 1.5 10 1.5Z" fill="none" stroke="#8b96a8" stroke-width="1.4"/>
+    <text x="10" y="19" text-anchor="middle" font-size="9" fill="#c9d4e4">%</text></svg><span class="hnum">${Math.round(v)}</span>`;
 }
 
 /* bike comfort: rain, gusts, extreme temps */
@@ -557,18 +558,24 @@ async function reverseName(lat,lon){
     return j.locality || j.city || j.principalSubdivision || 'My location';
   }catch(e){ return 'My location'; }
 }
+function gpsError(err){
+  const fr=ui.lang==='fr';
+  if(err && err.code===1)   // permission denied — tell the user how to unblock it
+    toast(fr?'Localisation bloquée pour ce site. Autorisez-la : Chrome ⋮ → Paramètres → Paramètres des sites → Position.'
+            :'Location is blocked for this site. Allow it in Chrome ⋮ → Settings → Site settings → Location.', 8000);
+  else
+    toast((fr?'GPS indisponible — ':'GPS unavailable — ')+(loc?loc.name:DEFAULT_LOC.name), 4000);
+  if(!loc) setLocation({...DEFAULT_LOC});
+}
 function locate(){
   if(!navigator.geolocation){ toast('Geolocation not available'); return; }
-  toast('Locating…',1500);
+  toast(ui.lang==='fr'?'Localisation…':'Locating…',1500);
   navigator.geolocation.getCurrentPosition(async p=>{
     const lat=+p.coords.latitude.toFixed(4);
     const lon=+p.coords.longitude.toFixed(4);
     const name=await reverseName(lat,lon);
     setLocation({name:`📍 ${name}`,lat,lon});
-  },err=>{
-    toast('GPS unavailable ('+err.message+'). Using '+(loc?loc.name:DEFAULT_LOC.name)+' — search 🔍 to change city.',5000);
-    if(!loc) setLocation({...DEFAULT_LOC});
-  },{enableHighAccuracy:false,timeout:10000,maximumAge:300000});
+  },gpsError,{enableHighAccuracy:false,timeout:10000,maximumAge:300000});
 }
 $('btnLocate').onclick=locate;
 $('btnRefresh').onclick=()=>fetchAll(true);
@@ -844,7 +851,7 @@ function renderHourly(){
         <div class="l1"><span class="bike ${bc}"></span>${Math.round(h.temperature_2m[i])}° <small style="color:var(--dim);font-weight:400">${t('feels')} ${Math.round(h.apparent_temperature[i])}°</small></div>
         <div class="l2">${wmo(h.weather_code[i])[1]}</div>
       </div>
-      <div class="hum">${humDrop(h.relative_humidity_2m[i])}</div>
+      <div class="hum">${humCell(h.relative_humidity_2m[i])}</div>
       <div class="rain">${prob}%${mm>=0.1?`<br><small>${r1(mm)} mm</small>`:''}</div>
       <div class="wind">${windArrow(h.wind_direction_10m[i])} ${Math.round(h.wind_speed_10m[i])}<br><small>g ${Math.round(h.wind_gusts_10m[i])} km/h</small></div>
     </div>`);
@@ -874,7 +881,7 @@ function renderDaily(){
         <div class="l1">${Math.round(d.temperature_2m_max[i])}° <small style="color:var(--dim);font-weight:400">/ ${Math.round(d.temperature_2m_min[i])}°</small></div>
         <div class="l2">${wmo(d.weather_code[i])[1]} · ☀ ${d.sunrise[i].slice(11,16)}–${d.sunset[i].slice(11,16)}</div>
       </div>
-      <div class="hum">${humOf(date)!=null?humDrop(humOf(date)):''}</div>
+      <div class="hum">${humOf(date)!=null?humCell(humOf(date)):''}</div>
       <div class="rain">${d.precipitation_probability_max?.[i]??0}%${mm>=0.1?`<br><small>${r1(mm)} mm</small>`:''}</div>
       <div class="wind">${Math.round(d.wind_speed_10m_max[i])}<br><small>g ${Math.round(d.wind_gusts_10m_max[i])} km/h</small></div>
     </div>`);
@@ -1274,7 +1281,10 @@ $('langSeg').addEventListener('click',e=>{
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(async p=>{
       const lat=+p.coords.latitude.toFixed(4), lon=+p.coords.longitude.toFixed(4);
-      if(!loc || Math.abs(lat-loc.lat)>0.02 || Math.abs(lon-loc.lon)>0.02){
+      // switch to "Here" unless we're already showing this GPS position
+      const isHere=(loc?.name||'').startsWith('📍')
+        && Math.abs(lat-loc.lat)<=0.02 && Math.abs(lon-loc.lon)<=0.02;
+      if(!isHere){
         const name=await reverseName(lat,lon);
         setLocation({name:`📍 ${name}`,lat,lon});
       }
