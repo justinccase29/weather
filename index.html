@@ -113,7 +113,7 @@ section{margin-top:14px}
 .seg button{flex:1;background:none;border:none;color:var(--dim);padding:6px 14px;font-size:13px;
             font-weight:600;cursor:pointer}
 .seg button.on{background:var(--accent);color:#06121f}
-.frow{display:grid;grid-template-columns:52px 30px 1fr auto auto;align-items:center;gap:8px;
+.frow{display:grid;grid-template-columns:46px 26px 1fr auto auto auto;align-items:center;gap:7px;
       padding:8px 2px;border-bottom:1px solid var(--line);font-size:13.5px}
 .frow:last-child{border-bottom:none}
 .frow .t{color:var(--dim);font-size:12.5px}
@@ -122,8 +122,10 @@ section{margin-top:14px}
 .frow .mid{display:flex;flex-direction:column;gap:1px;min-width:0}
 .frow .mid .l1{font-weight:600}
 .frow .mid .l2{color:var(--dim);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.frow .rain{text-align:right;color:var(--rain);font-size:12.5px;min-width:56px}
+.frow .rain{text-align:right;color:var(--rain);font-size:12.5px;min-width:44px}
 .frow .rain small{color:var(--dim)}
+.frow .hum{text-align:center;min-width:26px}
+.hdrop{width:23px;height:29px;display:block;margin:0 auto}
 .frow .wind{text-align:right;font-size:12.5px;min-width:72px}
 .frow .wind small{color:var(--dim)}
 .bike{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:1px}
@@ -313,7 +315,7 @@ footer a{color:var(--dim)}
     Wind: <a href="https://windy.com" target="_blank">Windy</a><br>
     <span data-i18n="bike">🚴 dot = bike-commute comfort (rain / gusts / extreme temp)</span><br>
     <div class="seg" id="langSeg" style="display:inline-flex;margin:8px 0 4px"><button data-lang="en" class="on">EN</button><button data-lang="fr">FR</button></div><br>
-    Bike Weather <b>v13</b>
+    Bike Weather <b>v14</b>
   </footer>
 </div>
 
@@ -382,6 +384,13 @@ function compass(deg){
   const pts=['N','NE','E','SE','S','SW','W','NW'];
   return pts[Math.round(deg/45)%8];
 }
+/* humidity icon: droplet outline with the % inside */
+function humDrop(v){
+  return `<svg class="hdrop" viewBox="0 0 24 30">
+    <path d="M12 2C12 2 4 13 4 19a8 8 0 0 0 16 0C20 13 12 2 12 2Z" fill="none" stroke="#8b96a8" stroke-width="1.5"/>
+    <text x="12" y="21.6" text-anchor="middle" font-size="7.4" fill="#c9d4e4">${Math.round(v)}%</text></svg>`;
+}
+
 /* bike comfort: rain, gusts, extreme temps */
 function bikeClass(prob, mm, gust, temp){
   let s=0;
@@ -420,6 +429,7 @@ en:{
   dial_dry:'dry hour', dial_in:m=>`in ${m} min`, dial_for:m=>`for ~${m} min`,
   temp:'Temp', precip:'Precip', sunshine:'Sunshine', maxtemp:'Max temp', mintemp:'Min temp',
   today:'Today', yesterday:'Yesterday', d7:'7 days', d30:'30 days', sofar:'so far', rainyd:'rainy d.',
+  here:'📍 Here',
   updated:'updated', search_ph:'Search city or place…', edit:'✎ edit', done:'✓ done',
   remove:n=>`Remove "${n}" from saved locations?`, noresults:'No results',
   fcast_tag:'forecast', nowword:'now',
@@ -444,6 +454,7 @@ fr:{
   dial_dry:'heure au sec', dial_in:m=>`dans ${m} min`, dial_for:m=>`~${m} min`,
   temp:'Temp', precip:'Précip', sunshine:'Soleil', maxtemp:'Temp max', mintemp:'Temp min',
   today:"Aujourd'hui", yesterday:'Hier', d7:'7 jours', d30:'30 jours', sofar:"jusqu'ici", rainyd:'j. de pluie',
+  here:'📍 Ici',
   updated:'màj', search_ph:'Rechercher une ville…', edit:'✎ modifier', done:'✓ ok',
   remove:n=>`Retirer «${n}» des lieux enregistrés ?`, noresults:'Aucun résultat',
   fcast_tag:'prévision', nowword:'maint.',
@@ -492,6 +503,12 @@ let chipEdit=false;
 function renderChips(){
   const c=$('chips'); c.innerHTML='';
   const saved=getSaved();
+  // permanent "Here" chip: always first, jumps to the GPS position
+  const hc=document.createElement('div');
+  hc.className='chip'+((loc&&(loc.name||'').startsWith('📍'))?' cur':'');
+  hc.textContent=t('here');
+  hc.onclick=()=>{ if(!chipEdit) locate(); };
+  c.appendChild(hc);
   saved.forEach((s,i)=>{
     const cur = loc && Math.abs(s.lat-loc.lat)<1e-4 && Math.abs(s.lon-loc.lon)<1e-4;
     const el=document.createElement('div');
@@ -825,8 +842,9 @@ function renderHourly(){
       <div class="ic">${nightIcon(h.weather_code[i],h.is_day[i])}</div>
       <div class="mid">
         <div class="l1"><span class="bike ${bc}"></span>${Math.round(h.temperature_2m[i])}° <small style="color:var(--dim);font-weight:400">${t('feels')} ${Math.round(h.apparent_temperature[i])}°</small></div>
-        <div class="l2">${wmo(h.weather_code[i])[1]} · 💧${h.relative_humidity_2m[i]}%</div>
+        <div class="l2">${wmo(h.weather_code[i])[1]}</div>
       </div>
+      <div class="hum">${humDrop(h.relative_humidity_2m[i])}</div>
       <div class="rain">${prob}%${mm>=0.1?`<br><small>${r1(mm)} mm</small>`:''}</div>
       <div class="wind">${windArrow(h.wind_direction_10m[i])} ${Math.round(h.wind_speed_10m[i])}<br><small>g ${Math.round(h.wind_gusts_10m[i])} km/h</small></div>
     </div>`);
@@ -854,8 +872,9 @@ function renderDaily(){
       <div class="ic">${wmo(d.weather_code[i])[0]}</div>
       <div class="mid">
         <div class="l1">${Math.round(d.temperature_2m_max[i])}° <small style="color:var(--dim);font-weight:400">/ ${Math.round(d.temperature_2m_min[i])}°</small></div>
-        <div class="l2">${wmo(d.weather_code[i])[1]} · 💧${humOf(date)??'–'}% · ☀ ${d.sunrise[i].slice(11,16)}–${d.sunset[i].slice(11,16)}</div>
+        <div class="l2">${wmo(d.weather_code[i])[1]} · ☀ ${d.sunrise[i].slice(11,16)}–${d.sunset[i].slice(11,16)}</div>
       </div>
+      <div class="hum">${humOf(date)!=null?humDrop(humOf(date)):''}</div>
       <div class="rain">${d.precipitation_probability_max?.[i]??0}%${mm>=0.1?`<br><small>${r1(mm)} mm</small>`:''}</div>
       <div class="wind">${Math.round(d.wind_speed_10m_max[i])}<br><small>g ${Math.round(d.wind_gusts_10m_max[i])} km/h</small></div>
     </div>`);
