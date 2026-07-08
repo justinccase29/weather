@@ -313,7 +313,7 @@ footer a{color:var(--dim)}
     Wind: <a href="https://windy.com" target="_blank">Windy</a><br>
     <span data-i18n="bike">🚴 dot = bike-commute comfort (rain / gusts / extreme temp)</span><br>
     <div class="seg" id="langSeg" style="display:inline-flex;margin:8px 0 4px"><button data-lang="en" class="on">EN</button><button data-lang="fr">FR</button></div><br>
-    Bike Weather <b>v12</b>
+    Bike Weather <b>v13</b>
   </footer>
 </div>
 
@@ -396,6 +396,8 @@ const DEFAULT_LOC={name:'Montréal', lat:45.5088, lon:-73.5878};
 const LS_SAVED='bw_saved', LS_LAST='bw_last', LS_UI='bw_ui';
 let ui={page:'now', ftab:'hourly', mmode:'geomet', hrange:'48h', lang:'en'};
 try{ Object.assign(ui, JSON.parse(localStorage.getItem(LS_UI)||'{}')); }catch(e){}
+// fresh open always starts on Now / Hourly / Radar HD (language and history range are kept)
+ui.page='now'; ui.ftab='hourly'; ui.mmode='geomet';
 const saveUI=()=>localStorage.setItem(LS_UI, JSON.stringify(ui));
 
 /* ================= i18n ================= */
@@ -590,7 +592,7 @@ async function fetchAll(force){
     const mainUrl='https://api.open-meteo.com/v1/forecast?'+base
       +'&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m'
       +'&minutely_15=precipitation,temperature_2m,wind_speed_10m,shortwave_radiation&forecast_minutely_15=384'
-      +'&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,is_day'
+      +'&hourly=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,is_day'
       +'&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,sunrise,sunset'
       +'&forecast_days=14';
     const histUrl='https://api.open-meteo.com/v1/forecast?'+base
@@ -823,7 +825,7 @@ function renderHourly(){
       <div class="ic">${nightIcon(h.weather_code[i],h.is_day[i])}</div>
       <div class="mid">
         <div class="l1"><span class="bike ${bc}"></span>${Math.round(h.temperature_2m[i])}° <small style="color:var(--dim);font-weight:400">${t('feels')} ${Math.round(h.apparent_temperature[i])}°</small></div>
-        <div class="l2">${wmo(h.weather_code[i])[1]}</div>
+        <div class="l2">${wmo(h.weather_code[i])[1]} · 💧${h.relative_humidity_2m[i]}%</div>
       </div>
       <div class="rain">${prob}%${mm>=0.1?`<br><small>${r1(mm)} mm</small>`:''}</div>
       <div class="wind">${windArrow(h.wind_direction_10m[i])} ${Math.round(h.wind_speed_10m[i])}<br><small>g ${Math.round(h.wind_gusts_10m[i])} km/h</small></div>
@@ -834,6 +836,14 @@ function renderHourly(){
 
 function renderDaily(){
   const d=data.daily, out=[];
+  // daily humidity = mean of the day's hourly values (Open-Meteo has no daily humidity)
+  const hh=data.hourly, humAcc={};
+  for(let i=0;i<hh.time.length;i++){
+    const dt=hh.time[i].slice(0,10);
+    const a=humAcc[dt]||(humAcc[dt]={s:0,n:0});
+    a.s+=hh.relative_humidity_2m[i]; a.n++;
+  }
+  const humOf=dt=>humAcc[dt]?Math.round(humAcc[dt].s/humAcc[dt].n):null;
   for(let i=0;i<d.time.length;i++){
     const date=d.time[i];
     const today=date===data.current.time.slice(0,10);
@@ -844,7 +854,7 @@ function renderDaily(){
       <div class="ic">${wmo(d.weather_code[i])[0]}</div>
       <div class="mid">
         <div class="l1">${Math.round(d.temperature_2m_max[i])}° <small style="color:var(--dim);font-weight:400">/ ${Math.round(d.temperature_2m_min[i])}°</small></div>
-        <div class="l2">${wmo(d.weather_code[i])[1]} · ☀ ${d.sunrise[i].slice(11,16)}–${d.sunset[i].slice(11,16)}</div>
+        <div class="l2">${wmo(d.weather_code[i])[1]} · 💧${humOf(date)??'–'}% · ☀ ${d.sunrise[i].slice(11,16)}–${d.sunset[i].slice(11,16)}</div>
       </div>
       <div class="rain">${d.precipitation_probability_max?.[i]??0}%${mm>=0.1?`<br><small>${r1(mm)} mm</small>`:''}</div>
       <div class="wind">${Math.round(d.wind_speed_10m_max[i])}<br><small>g ${Math.round(d.wind_gusts_10m_max[i])} km/h</small></div>
@@ -1238,30 +1248,18 @@ $('langSeg').addEventListener('click',e=>{
   applyFtab();
   for(const b of $('histSeg').children) b.classList.toggle('on', b.dataset.range===histRange);
   showPage(ui.page);
+  // show something immediately (last location or default), then always jump to GPS
   let last=null;
   try{ last=JSON.parse(localStorage.getItem(LS_LAST)); }catch(e){}
-  if(last && typeof last.lat==='number'){
-    setLocation(last);
-    // silently try to refresh GPS position in background if it was a GPS location
-    if((last.name||'').startsWith('📍') && navigator.geolocation){
-      navigator.geolocation.getCurrentPosition(async p=>{
-        const lat=+p.coords.latitude.toFixed(4), lon=+p.coords.longitude.toFixed(4);
-        if(Math.abs(lat-last.lat)>0.02||Math.abs(lon-last.lon)>0.02){
-          const name=await reverseName(lat,lon);
-          setLocation({name:`📍 ${name}`,lat,lon});
-        }
-      },()=>{},{timeout:8000,maximumAge:600000});
-    }
-  }else{
-    // first run: load the default city immediately, refine with GPS in the background
-    setLocation({...DEFAULT_LOC});
-    if(navigator.geolocation){
-      navigator.geolocation.getCurrentPosition(async p=>{
-        const lat=+p.coords.latitude.toFixed(4), lon=+p.coords.longitude.toFixed(4);
+  setLocation(last && typeof last.lat==='number' ? last : {...DEFAULT_LOC});
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(async p=>{
+      const lat=+p.coords.latitude.toFixed(4), lon=+p.coords.longitude.toFixed(4);
+      if(!loc || Math.abs(lat-loc.lat)>0.02 || Math.abs(lon-loc.lon)>0.02){
         const name=await reverseName(lat,lon);
         setLocation({name:`📍 ${name}`,lat,lon});
-      },()=>{},{enableHighAccuracy:false,timeout:8000,maximumAge:600000});
-    }
+      }
+    },()=>{},{enableHighAccuracy:false,timeout:10000,maximumAge:300000});
   }
   // refresh when returning to the app if data is stale (>15 min)
   document.addEventListener('visibilitychange',()=>{
